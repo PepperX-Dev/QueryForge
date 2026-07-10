@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
 	  
 	<PackageId>PepperX.QueryForge.Dapper</PackageId>
-	<Version>1.0.1</Version>
+	<Version>1.0.3</Version>
 	<Authors>Amir Hossein Morady Pour</Authors>
 	<Description>A lightweight, provider-agnostic, dynamic query building and validation engine for .NET.</Description>
 	<PackageTags>sql;query;builder;dynamic;pagination;grouping;linq;filter</PackageTags>
