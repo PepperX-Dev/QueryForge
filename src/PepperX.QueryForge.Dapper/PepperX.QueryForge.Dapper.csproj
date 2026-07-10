@@ -6,10 +6,10 @@
     <Nullable>enable</Nullable>
 	  
 	<PackageId>PepperX.QueryForge.Dapper</PackageId>
-	<Version>1.0.4</Version>
+	<Version>1.0.5</Version>
 	<Authors>Amir Hossein Morady Pour</Authors>
 	<Description>High-performance execution provider for the PepperX.QueryForge core library. It translates abstract query models into optimized SQL and executes them against Microsoft SQL Server using Dapper, seamlessly handling hierarchical grouping, complex filtering, and Stored Procedure/TVF integration.</Description>
-	<PackageTags>sql;query;builder;dynamic;pagination;grouping;linq;filter</PackageTags>
+	<PackageTags>dapper;sql-server;ado-net;mssql;execution-provider;stored-procedures;tvf;dynamic-sql;csharp;dotnet;micro-orm;sql</PackageTags>
 	<PackageLicenseExpression>MIT</PackageLicenseExpression>
 	<PackageReadmeFile>README.md</PackageReadmeFile>
 	<RepositoryUrl>https://github.com/amirhosseinmp02/PepperX/tree/main/src/PepperX.QueryForge.Dapper</RepositoryUrl>
