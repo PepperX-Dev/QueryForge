@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="LICENSE" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/PepperX.QueryForge.Dapper/PepperX.QueryForge.Dapper.csproj" />
+    <Project Path="src/PepperX.QueryForge/PepperX.QueryForge.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PepperX.QueryForge.Dapper.Tests/PepperX.QueryForge.Dapper.Tests.csproj" />
+    <Project Path="tests/PepperX.QueryForge.Tests/PepperX.QueryForge.Tests.csproj" Id="d3f61aef-23a3-4baf-b762-ffafe240541d" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/PepperX.QueryForge.Sample.WebApi/PepperX.QueryForge.Sample.WebApi.csproj" />
+  </Folder>
+</Solution>

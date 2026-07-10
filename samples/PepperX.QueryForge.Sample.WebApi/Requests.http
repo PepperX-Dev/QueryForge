@@ -1,0 +1,229 @@
+@baseUrl = http://localhost:5212
+
+### ==========================================================================
+### GROUP 1: CORE FLAT QUERIES
+### ==========================================================================
+
+# 1. Standard Flat Query
+POST {{baseUrl}}/api/users/query
+Content-Type: application/json
+
+{
+  "paging": { "size": 10, "number": 1 },
+  "sortColumns": [ { "columnName": "Score", "sortOrder": 1 } ]
+}
+
+###
+
+# 2. Raw Connection Extension
+POST {{baseUrl}}/api/users/query-raw
+Content-Type: application/json
+
+{
+  "paging": { "size": 5, "number": 1 }
+}
+
+###
+
+# 3. Column Projection (Bandwidth Saving)
+POST {{baseUrl}}/api/users/projection
+Content-Type: application/json
+
+{
+  "selectColumns": ["UserId", "FirstName", "Email", "Score"],
+  "paging": { "size": 10, "number": 1 }
+}
+
+###
+
+# 4. Deep Pagination (Page 5)
+POST {{baseUrl}}/api/users/deep-pagination
+Content-Type: application/json
+
+{
+  "paging": { "size": 10, "number": 5 },
+  "sortColumns": [ { "columnName": "UserId", "sortOrder": 0 } ]
+}
+
+### ==========================================================================
+### GROUP 2: ADVANCED FILTERING
+### ==========================================================================
+
+# 5. Text Search (Contains / StartsWith)
+# Operator 2 = Contains, Operator 4 = StartsWith
+POST {{baseUrl}}/api/users/filters/text-search
+Content-Type: application/json
+
+{
+  "criteria": {
+    "groups": [
+      {
+        "conditions": [
+          { "columnName": "Email", "operator": 5, "value": "@test.com" },
+          { "columnName": "FirstName", "operator": 4, "value": "First" }
+        ]
+      }
+    ]
+  }
+}
+
+###
+
+# 6. Null Checks (IS NULL / IS NOT NULL)
+# Operator 0 (Equals) + null value = IS NULL
+# Operator 1 (NotEquals) + null value = IS NOT NULL
+POST {{baseUrl}}/api/users/filters/null-checks
+Content-Type: application/json
+
+{
+  "criteria": {
+    "groups": [
+      {
+        "conditions": [
+          { "columnName": "DeletedAt", "operator": 0, "value": null }
+        ]
+      }
+    ]
+  }
+}
+
+###
+
+# 7. Range Filtering (Between)
+# Operator 10 = Between. Requires 'value' and 'valueTo'.
+POST {{baseUrl}}/api/users/filters/range
+Content-Type: application/json
+
+{
+  "criteria": {
+    "groups": [
+      {
+        "conditions": [
+          { "columnName": "Score", "operator": 10, "value": 75.5, "valueTo": 95.0 }
+        ]
+      }
+    ]
+  }
+}
+
+###
+
+# 8. Complex Logic (OR / AND NOT)
+# Logic 1 = Or, Logic 3 = OrNot
+POST {{baseUrl}}/api/users/filters/complex-logic
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 1,
+        "conditions": [
+          { "columnName": "Country", "operator": 0, "value": "USA" },
+          { "columnName": "Country", "operator": 0, "value": "Germany" }
+        ]
+      },
+      {
+        "logic": 3,
+        "conditions": [
+          { "columnName": "Role", "operator": 0, "value": "Guest" }
+        ]
+      }
+    ]
+  }
+}
+
+### ==========================================================================
+### GROUP 3: SECURITY & VALIDATION
+### ==========================================================================
+
+# 9. Silent Strip (Sanitizes invalid requests silently)
+# Ask for DeletedAt and size 500. Backend strips column and clamps size to 100.
+POST {{baseUrl}}/api/users/security/silent-strip
+Content-Type: application/json
+
+{
+  "selectColumns": ["UserId", "Email", "DeletedAt"],
+  "paging": { "size": 500, "number": 1 }
+}
+
+###
+
+# 10. Strict Validation (Returns 400 Bad Request)
+# Ask for PasswordHash. Backend throws QueryValidationException -> 400 ProblemDetails.
+POST {{baseUrl}}/api/users/security/strict-validation
+Content-Type: application/json
+
+{
+  "selectColumns": ["UserId", "Email", "PasswordHash"]
+}
+
+### ==========================================================================
+### GROUP 4: HIERARCHIES & GROUPING
+### ==========================================================================
+
+# 11. 2-Level Grouping (Country -> Department)
+POST {{baseUrl}}/api/users/hierarchy/grouped-2-level
+Content-Type: application/json
+
+{
+  "paging": { "size": 3, "number": 1 }
+}
+
+###
+
+# 12. 3-Level Grouping (Country -> Department -> Role)
+POST {{baseUrl}}/api/users/hierarchy/grouped-3-level
+Content-Type: application/json
+
+{
+  "paging": { "size": 2, "number": 1 }
+}
+
+###
+
+# 13. Filtered Grouping (Active Users Only, Grouped by Country)
+POST {{baseUrl}}/api/users/hierarchy/grouped-filtered
+Content-Type: application/json
+
+{
+  "criteria": {
+    "groups": [ { "conditions": [ { "columnName": "IsActive", "operator": 0, "value": true } ] } ]
+  },
+  "paging": { "size": 5, "number": 1 }
+}
+
+### ==========================================================================
+### GROUP 5: DATABASE OBJECTS
+### ==========================================================================
+
+# 14. Query a View
+POST {{baseUrl}}/api/objects/view
+Content-Type: application/json
+
+{
+  "paging": { "size": 10, "number": 1 }
+}
+
+###
+
+# 15. Query a Table-Valued Function (TVF)
+POST {{baseUrl}}/api/objects/tvf
+Content-Type: application/json
+
+{
+  "paging": { "size": 10, "number": 1 }
+}
+
+###
+
+# 16. Query a Stored Procedure
+POST {{baseUrl}}/api/objects/stored-procedure
+Content-Type: application/json
+
+{
+  "criteria": {
+    "groups": [ { "conditions": [ { "columnName": "Age", "operator": 7, "value": 30 } ] } ]
+  }
+}

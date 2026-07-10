@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+	  
+	<PackageId>PepperX.QueryForge.Dapper</PackageId>
+	<Version>1.0.0</Version>
+	<Authors>Amir Hossein Morady Pour</Authors>
+	<Description>A lightweight, provider-agnostic, dynamic query building and validation engine for .NET.</Description>
+	<PackageTags>sql;query;builder;dynamic;pagination;grouping;linq;filter</PackageTags>
+	<PackageLicenseExpression>MIT</PackageLicenseExpression>
+	<PackageReadmeFile>README.md</PackageReadmeFile>
+	<RepositoryUrl>https://github.com/amirhosseinmp02/PepperX</RepositoryUrl>
+
+	<IsPackable>true</IsPackable>
+	<GenerateDocumentationFile>true</GenerateDocumentationFile>
+	<NoWarn>$(NoWarn);1591</NoWarn>
+
+	<IncludeSymbols>true</IncludeSymbols>
+	<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+	
+  <ItemGroup>
+    <ProjectReference Include="..\PepperX.QueryForge\PepperX.QueryForge.csproj" />
+	  
+    <InternalsVisibleTo Include="PepperX.QueryForge.Dapper.Tests" />
+
+	<None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+	
+  <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.79" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+  </ItemGroup>
+
+</Project>
