@@ -25,7 +25,8 @@ PepperX is a modular ecosystem. Each tool is engineered to solve specific, compl
 | :--- | :--- | :---: | :--- |
 | **[PepperX.QueryForge](./src/PepperX.QueryForge)** | **Abstract, provider-agnostic foundation** of the QueryForge ecosystem. It provides the core models, fluent builders, and bulletproof validation engines required to construct dynamic, paginated, and hierarchically grouped queries. | ✅ Released | [![NuGet](https://img.shields.io/nuget/v/PepperX.QueryForge?style=flat-square&label=)](https://www.nuget.org/packages/PepperX.QueryForge) |
 | **[PepperX.QueryForge.Dapper](./src/PepperX.QueryForge.Dapper)** | High-performance execution provider for the `PepperX.QueryForge` core library. It translates abstract query models into optimized SQL and executes them against **Microsoft SQL Server** using Dapper, seamlessly handling hierarchical grouping, complex filtering, and Stored Procedure/TVF integration. | ✅ Released | [![NuGet](https://img.shields.io/nuget/v/PepperX.QueryForge.Dapper?style=flat-square&label=)](https://www.nuget.org/packages/PepperX.QueryForge.Dapper) |
-| **PepperX.QueryForge.EFCore** | Entity Framework Core execution provider for QueryForge. | 🔧 Dev | *Coming Soon* |
+| **PepperX.QueryForge.EFCore** | **Entity Framework Core** execution provider for QueryForge. | 🔧 Dev | *Coming Soon* |
+| **PepperX.QueryForge.InMemory** | In-memory execution provider designed for **IEnumerable** based types without database dependencies. | 📋 Planned | *Coming Soon* |
 
 ---
 
