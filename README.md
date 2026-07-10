@@ -1,10 +1,21 @@
-# PepperX.QueryForge
+<p align="center">
+  <img src="icon.png" alt="PepperX.QueryForge Logo" width="140" />
+</p>
 
-[![NuGet Version](https://img.shields.io/nuget/v/PepperX.QueryForge.Dapper.svg?style=flat-square&label=PepperX.QueryForge.Dapper)](https://www.nuget.org/packages/PepperX.QueryForge.Dapper/)
-[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square)](https://dotnet.microsoft.com/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
+<h1 align="center">PepperX.QueryForge</h1>
 
-**PepperX.QueryForge** is a lightweight, provider-agnostic, dynamic query building and execution engine for .NET. Build complex, paginated, and hierarchically grouped queries using a fluent C# API or accept them as JSON payloads from any frontend — then execute them seamlessly across multiple database providers.
+<p align="center">
+  <strong>A lightweight, provider-agnostic, dynamic query building and execution engine for .NET.</strong><br/>
+  Build complex, paginated, and hierarchically grouped queries using a fluent C# API or accept them as JSON payloads from any frontend.
+</p>
+
+<p align="center">
+  <a href="https://www.nuget.org/packages/PepperX.QueryForge.Dapper"><img src="https://img.shields.io/nuget/v/PepperX.QueryForge.Dapper.svg?style=flat-square&label=PepperX.QueryForge.Dapper" alt="NuGet Dapper"></a>
+  <a href="https://dotnet.microsoft.com/"><img src="https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square" alt=".NET"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License"></a>
+</p>
+
+<br>
 
 ---
 

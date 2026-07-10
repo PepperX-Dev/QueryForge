@@ -6,13 +6,14 @@
     <Nullable>enable</Nullable>
 	  
 	<PackageId>PepperX.QueryForge.Dapper</PackageId>
-	<Version>1.0.0</Version>
+	<Version>1.0.1</Version>
 	<Authors>Amir Hossein Morady Pour</Authors>
 	<Description>A lightweight, provider-agnostic, dynamic query building and validation engine for .NET.</Description>
 	<PackageTags>sql;query;builder;dynamic;pagination;grouping;linq;filter</PackageTags>
 	<PackageLicenseExpression>MIT</PackageLicenseExpression>
 	<PackageReadmeFile>README.md</PackageReadmeFile>
 	<RepositoryUrl>https://github.com/amirhosseinmp02/PepperX</RepositoryUrl>
+	<PackageIcon>icon.png</PackageIcon>
 
 	<IsPackable>true</IsPackable>
 	<GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -28,6 +29,7 @@
     <InternalsVisibleTo Include="PepperX.QueryForge.Dapper.Tests" />
 
 	<None Include="..\..\README.md" Pack="true" PackagePath="\" />
+	<None Include="..\..\icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 	
   <ItemGroup>
