@@ -6,13 +6,13 @@
     <Nullable>enable</Nullable>
 	  
     <PackageId>PepperX.QueryForge</PackageId>
-    <Version>1.0.3</Version>
+    <Version>1.0.4</Version>
     <Authors>Amir Hossein Morady Pour</Authors>
-    <Description>A lightweight, provider-agnostic, dynamic query building and validation engine for .NET.</Description>
+    <Description>Abstract, provider-agnostic foundation of the QueryForge ecosystem. It provides the core models, fluent builders, and bulletproof validation engines required to construct dynamic, paginated, and hierarchically grouped queries.</Description>
     <PackageTags>sql;query;builder;dynamic;pagination;grouping;linq;filter</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <RepositoryUrl>https://github.com/amirhosseinmp02/PepperX</RepositoryUrl>
+    <RepositoryUrl>https://github.com/amirhosseinmp02/PepperX/tree/main/src/PepperX.QueryForge</RepositoryUrl>
 	<PackageIcon>icon.png</PackageIcon>
 	  
     <IsPackable>true</IsPackable>
@@ -25,7 +25,6 @@
 
   <ItemGroup>
     <Folder Include="Models\" />
-	<None Include="..\..\README.md" Pack="true" PackagePath="\" />
 	<None Include="..\..\icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
