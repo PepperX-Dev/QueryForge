@@ -6,109 +6,88 @@
 
 [![NuGet Version](https://img.shields.io/nuget/v/PepperX.QueryForge.svg?style=flat-square&label=PepperX.QueryForge)](https://www.nuget.org/packages/PepperX.QueryForge/)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?style=flat-square)](https://dotnet.microsoft.com/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](../../LICENSE)
 
-**PepperX.QueryForge** is the **abstract, provider-agnostic foundation** of the QueryForge ecosystem. It provides the core models, fluent builders, and bulletproof validation engines required to construct dynamic, paginated, and hierarchically grouped queries.
+## What this is
 
-> ⚠️ **Important:** This package defines the *intent* and *structure* of the query but does not execute it. To execute queries against a database, you must install an execution provider like [`PepperX.QueryForge.Dapper`](https://www.nuget.org/packages/PepperX.QueryForge.Dapper).
+**PepperX.QueryForge** is the abstract core of the QueryForge ecosystem: the shared vocabulary for describing *"filter this, sort it like that, page it, maybe group it"* — as a plain C# object or a plain JSON payload — without tying that intent to any particular database or library.
 
----
+It has **no execution logic**. It doesn't run SQL. It just defines the models, a fluent builder, and a validation engine that every provider (Dapper today, EF Core and In-Memory next) builds on top of.
 
-## 📑 Table of Contents
+> To actually run a `Query` against a database, install a provider — e.g. [`PepperX.QueryForge.Dapper`](https://www.nuget.org/packages/PepperX.QueryForge.Dapper). It's included automatically as a dependency.
 
-- [✨ Core Features](#-core-features)
-- [🧩 The Provider Ecosystem](#-the-provider-ecosystem)
-- [🏗️ Core Concepts](#️-core-concepts)
-- [🔍 Advanced Filtering](#-advanced-filtering)
-- [🌳 Hierarchical Grouping Models](#-hierarchical-grouping-models)
-- [🛡️ Security & Validation Engine](#️-security--validation-engine)
-- [📚 Enum Reference](#-enum-reference)
+## At a glance
 
----
+- 🧱 **One shape, `Query`** — filters, sorting, paging, and grouping, whether it comes from C# or from a client as JSON.
+- 🔍 **Nested filter logic** — `AND` / `OR` / `AND NOT` / `OR NOT` groups, any depth.
+- 🌳 **Grouping models** — describes multi-level `key / count / items` hierarchies for providers to build.
+- 🛡️ **Validation engine** — silently strip or hard-block invalid columns/paging, shared by every provider.
+- 🔌 **Provider-agnostic** — write the intent once, plug in whichever execution engine you need.
 
-## ✨ Core Features
+## Install
 
-- **Abstract & Provider-Agnostic:** Define your query intent once in C# or JSON. Execute it anywhere by plugging in a provider (Dapper, EF Core, InMemory).
-- **Bulletproof Security:** Built-in `SilentStrip` validation engine prevents schema enumeration, data dumps, and malicious column requests before the query ever reaches the database.
-- **Zero Boilerplate:** Beautiful Fluent API for building queries in C#, or accept them as raw JSON payloads directly from frontends.
-- **Complex Logic Trees:** Natively supports deeply nested `AND` / `OR` / `AND NOT` logic groups.
-
----
-
-## 🧩 The Provider Ecosystem
-
-This core library is automatically included as a dependency when you install an execution provider.
-
-| Provider | Package | Status |
-| :--- | :--- | :--- |
-| **Dapper (SQL Server)** | [`PepperX.QueryForge.Dapper`](https://www.nuget.org/packages/PepperX.QueryForge.Dapper) | ✅ Released |
-| **Entity Framework Core** | `PepperX.QueryForge.EFCore` | 🔧 In Development |
-| **In-Memory (Testing)** | `PepperX.QueryForge.InMemory` | 📋 Planned |
-
----
-
-## 🏗️ Core Concepts
-
-### The Base `Query` vs. Provider Queries
-
-To prevent frontends from spoofing target tables (e.g., sending `"object": {"name": "AdminPasswords"}`), your API endpoints should accept the base `PepperX.QueryForge.Query` class. The backend then securely upgrades it to a provider-specific query (like `DapperQuery`).
-
-```csharp
-// Frontend sends this JSON (Notice: No 'object' property — it's physically impossible to spoof)
-// { "paging": { "size": 10 }, "sortColumns": [{"columnName": "Score", "sortOrder": 1}] }
-
-// The backend maps the frontend criteria, paging, and sorting securely.
+```bash
+dotnet add package PepperX.QueryForge
 ```
 
----
+(You'll rarely install this directly — it comes along with whichever provider you pick.)
 
-## 🔍 Advanced Filtering
+## The `Query` object
 
-QueryForge supports deeply nested logical groups and a comprehensive set of comparison operators.
+```csharp
+public class Query
+{
+    public QueryCriteria Criteria { get; set; }                       // filters
+    public QueryPaging Paging { get; set; }                           // { Size, Number }
+    public IReadOnlyList<string> SelectColumns { get; set; }          // projection
+    public IReadOnlyList<SortDescriptor> SortColumns { get; set; }    // ORDER BY
+    public IReadOnlyList<GroupByDescriptor> GroupByColumns { get; set; } // GROUP BY / hierarchy
+}
+```
 
-### C# Builder Syntax
+Build one by hand, deserialize it straight from a client's JSON body, or use the fluent builder:
+
+```csharp
+var query = QueryBuilder.New()
+    .Select("Id", "Name", "Country")
+    .Sort(new SortDescriptor("Name"))
+    .Page(size: 20, number: 1)
+    .Build();
+```
+
+## Filtering
+
+`Criteria` is a tree: groups of conditions, joined by a `Logic`, where each group is itself joined to the others by a `Logic`.
 
 ```csharp
 var criteria = new QueryCriteria(
     logic: Logic.And,
-    groups: [
+    groups:
+    [
         new ConditionGroup(
             logic: Logic.Or,
-            conditions: [
+            conditions:
+            [
                 new Condition("Country", ConditionOperator.Equals, "USA"),
                 new Condition("Country", ConditionOperator.Equals, "Germany")
-            ]
-        ),
-        new ConditionGroup(
-            logic: Logic.AndNot,
-            conditions: [
-                new Condition("Role", ConditionOperator.Equals, "Guest"),
-                new Condition("Age", ConditionOperator.LessThan, 21)
-            ]
-        )
-    ]
-);
+            ])
+    ]);
+
+var query = QueryBuilder.Where(criteria).Build();
 ```
 
-### Equivalent JSON Payload (from Frontend)
+Equivalent JSON from a client:
 
 ```json
 {
   "criteria": {
-    "logic": 0,
+    "logic": 0,                  // Logic.And -> combine the groups below with AND (only one group here)
     "groups": [
       {
-        "logic": 1,
+        "logic": 1,              // Logic.Or  -> Country = 'USA' OR Country = 'Germany'
         "conditions": [
-          { "columnName": "Country", "operator": 0, "value": "USA" },
-          { "columnName": "Country", "operator": 0, "value": "Germany" }
-        ]
-      },
-      {
-        "logic": 2,
-        "conditions": [
-          { "columnName": "Role", "operator": 0, "value": "Guest" },
-          { "columnName": "Age", "operator": 6, "value": 21 }
+          { "columnName": "Country", "operator": 0, "value": "USA" },      // operator 0 = Equals
+          { "columnName": "Country", "operator": 0, "value": "Germany" }   // operator 0 = Equals
         ]
       }
     ]
@@ -116,118 +95,58 @@ var criteria = new QueryCriteria(
 }
 ```
 
----
+> `Logic`: `0`=And, `1`=Or, `2`=AndNot, `3`=OrNot
 
-## 🌳 Hierarchical Grouping Models
+`ConditionOperator` covers the usual set: `Equals`, `NotEquals`, `Contains`, `NotContains`, `StartsWith`, `EndsWith`, `LessThan`, `GreaterThan`, `LessThanOrEqualTo`, `GreaterThanOrEqualTo`, `Between`.
 
-By specifying `GroupByColumns`, the core models define how the execution provider should transform a flat tabular result into a deeply nested hierarchical tree.
+## Grouping
+
+Add `GroupByColumns` and a provider turns a flat result into a nested tree instead — this library just defines that shape (`HierarchyNode<T>`: `Key`, `Count`, `SubGroups`, `Items`), a provider does the actual grouping:
 
 ```csharp
 var query = QueryBuilder.New()
-    .GroupBy(
-        new GroupByDescriptor("Country", SortOrder.Ascending),
-        new GroupByDescriptor("Department", SortOrder.Ascending)
-    )
-    .Page(5, 1) // Paginates the TOP-LEVEL groups
+    .GroupBy(new GroupByDescriptor("Country"), new GroupByDescriptor("Department"))
+    .Page(5, 1) // paginates the top-level groups
     .Build();
 ```
 
-### Target JSON Structure (Handled by Providers)
+## Validation
 
-```json
-{
-  "meta": { "total": { "rows": 2, "pages": 1 }, "type": "Grouped" },
-  "groups": [
-    {
-      "key": "USA",
-      "count": 45,
-      "subGroups": [
-        {
-          "key": "IT",
-          "count": 20,
-          "items": [ { "userId": 1, "name": "Alice" } ]
-        }
-      ]
-    }
-  ]
-}
-```
+Never trust a `Query` that came from outside your API. `Validate()` supports two modes:
 
----
-
-## 🛡️ Security & Validation Engine
-
-Never trust frontend query payloads. The core validation engine can either silently sanitize malicious requests or throw strict errors.
-
-### Silent Strip (Recommended for Public APIs)
-
-Silently removes denied columns and clamps pagination limits without throwing errors.
+| Mode | Behavior |
+| :--- | :--- |
+| `SilentStrip` | Quietly removes denied/disallowed columns and clamps paging — the request still succeeds. |
+| `ThrowException` | Throws a `QueryValidationException` listing every violated rule. |
 
 ```csharp
 query.Validate(rules =>
 {
-    // Prevent sensitive column leakage
-    rules.Select(c => c.Deny("PasswordHash", "SecretKey", "DeletedAt"));
-    
-    // Prevent data-dump attacks
+    rules.Select(c => c.Deny("PasswordHash", "SecretKey"));
     rules.PageSize(p => p.Max(100));
-}, ValidationMode.SilentStrip);
+}, QueryValidationMode.SilentStrip);
 ```
 
-### Strict Validation (Recommended for Internal APIs)
+## The result contract
 
-Throws a `QueryValidationException` containing a list of all violated rules.
+Every provider returns the same `QueryResult<TModel>`, whichever mode you used:
 
 ```csharp
-try 
+public record QueryResult<TModel>
 {
-    query.Validate(rules => rules.Select(c => c.Deny("PasswordHash")), ValidationMode.ThrowException);
-}
-catch (QueryValidationException ex)
-{
-    // ex.InvalidProperties contains ["PasswordHash"]
+    public QueryResultMeta Meta { get; init; }                     // { Total: { Rows, Pages }, Type }
+    public IReadOnlyList<TModel> Models { get; init; }             // populated when Type == Flat
+    public IReadOnlyList<HierarchyNode<TModel>> Groups { get; init; } // populated when Type == Grouped
 }
 ```
 
----
+## Providers built on this core
 
-## 📚 Enum Reference
-
-When sending JSON payloads from the frontend, enums are serialized as **integers** by default.
-
-### `ConditionOperator`
-
-| Value | Name | SQL Equivalent |
-| :---: | :--- | :--- |
-| `0` | `Equals` | `= @val` (or `IS NULL` if value is null) |
-| `1` | `NotEquals` | `<> @val` (or `IS NOT NULL` if value is null) |
-| `2` | `Contains` | `LIKE '%@val%'` |
-| `3` | `NotContains` | `NOT LIKE '%@val%'` |
-| `4` | `StartsWith` | `LIKE '@val%'` |
-| `5` | `EndsWith` | `LIKE '%@val'` |
-| `6` | `LessThan` | `< @val` |
-| `7` | `GreaterThan` | `> @val` |
-| `8` | `LessThanOrEqualTo` | `<= @val` |
-| `9` | `GreaterThanOrEqualTo` | `>= @val` |
-| `10` | `Between` | `BETWEEN @val AND @valTo` |
-
-### `Logic`
-
-| Value | Name | SQL Equivalent |
-| :---: | :--- | :--- |
-| `0` | `And` | `(...) AND (...)` |
-| `1` | `Or` | `(...) OR (...)` |
-| `2` | `AndNot` | `(...) AND NOT (...)` |
-| `3` | `OrNot` | `(...) OR NOT (...)` |
-
-### `SortOrder`
-
-| Value | Name | SQL Equivalent |
-| :---: | :--- | :--- |
-| `0` | `Ascending` | `ORDER BY col ASC` |
-| `1` | `Descending` | `ORDER BY col DESC` |
-
----
+| Provider | Package | Status |
+| :--- | :--- | :---: |
+| Dapper (SQL Server) | [`PepperX.QueryForge.Dapper`](https://www.nuget.org/packages/PepperX.QueryForge.Dapper) | ✅ Released |
+| Entity Framework Core | `PepperX.QueryForge.EFCore` | 🔧 In Development |
+| In-Memory | `PepperX.QueryForge.InMemory` | 📋 Planned |
 
 ## 🤝 Contributing & License
 

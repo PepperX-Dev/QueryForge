@@ -16,7 +16,7 @@ public class DapperQueryForgeOptions
     /// A factory function to create the ADO.NET database connection used for background initialization 
     /// and auto-managed query execution. 
     /// Required if <see cref="Approach"/> is set to <see cref="DapperExecutionApproach.DevelopAndUseSp"/> 
-    /// or if using the parameterless <see cref="IDapperQueryService.QueryAsync{TModel}(DapperQuery, int?, CancellationToken)"/>.
+    /// or if using the parameterless <see cref="IDapperQueryService.QueryAsync{TModel}(DapperQuery, int?, IDbTransaction?)"/>.
     /// </summary>
     public Func<IServiceProvider, IDbConnection>? ConnectionFactory { get; set; }
 }
