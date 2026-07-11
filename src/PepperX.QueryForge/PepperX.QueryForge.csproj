@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
 	  
     <PackageId>PepperX.QueryForge</PackageId>
-    <Version>1.0.5</Version>
+    <Version>1.0.6</Version>
     <Authors>Amir Hossein Morady Pour</Authors>
     <Description>Abstract, provider-agnostic foundation of the QueryForge ecosystem. It provides the core models, fluent builders, and bulletproof validation engines required to construct dynamic, paginated, and hierarchically grouped queries.</Description>
     <PackageTags>dynamic-query;query-builder;pagination;hierarchical-grouping;csharp;dotnet;json-validation;devextreme;ag-grid;kendo-ui;query-engine;filtering;sorting;abstract-core</PackageTags>
