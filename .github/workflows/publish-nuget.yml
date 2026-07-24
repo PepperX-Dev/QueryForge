@@ -45,7 +45,7 @@ jobs:
         dotnet-version: '10.0.x'
 
     - name: Pack Solution
-      run: dotnet pack PepperX.slnx -c Release -o ./nupkgs
+      run: dotnet pack QueryForge.slnx -c Release -o ./nupkgs
 
     - name: Authenticate with NuGet (Trusted Publishing)
       uses: NuGet/login@v1
