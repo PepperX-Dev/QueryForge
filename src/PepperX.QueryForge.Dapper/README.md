@@ -1,6 +1,6 @@
-[![Part of PepperX Ecosystem](https://img.shields.io/badge/Part_of-PepperX_Ecosystem-512BD4?style=for-the-badge&logo=github&logoColor=white)](https://github.com/amirhosseinmp02/PepperX)
+[![Part of PepperX Ecosystem](https://img.shields.io/badge/Part_of-PepperX_Ecosystem-512BD4?style=for-the-badge&logo=github&logoColor=white)](https://github.com/PepperX-Dev)
 
-![PepperX.QueryForge Logo](https://raw.githubusercontent.com/amirhosseinmp02/PepperX/main/icon.png)
+![PepperX.QueryForge Logo](https://raw.githubusercontent.com/PepperX-Dev/QueryForge/main/icon.png)
 
 # PepperX.QueryForge.Dapper
 
@@ -330,5 +330,5 @@ var spQuery = DapperQueryBuilder.New()
 
 ## 🤝 Contributing & License
 
-This project is part of the [PepperX Ecosystem](https://github.com/amirhosseinmp02/PepperX).
-Licensed under the MIT License.
+This project is part of the [PepperX Ecosystem](https://github.com/PepperX-Dev).
+Licensed under the MIT License — see the [LICENSE](../../LICENSE) file for details.
