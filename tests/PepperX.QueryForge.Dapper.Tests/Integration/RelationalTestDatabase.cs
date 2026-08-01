@@ -147,7 +147,17 @@ internal static class RelationalTestDatabase
         }
     }
 
-    private static string P(ISqlDialect dialect, string name) => dialect.ParameterReference(name);
+    /// <summary>
+    /// The bind-variable name used for a column's value.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not the bare column name. Oracle rejects a bind variable named after a reserved
+    /// word with ORA-01745, and the order table has a <c>Number</c> column — <c>NUMBER</c> being a
+    /// datatype keyword. Prefixing sidesteps the whole class of collision on every engine at once.
+    /// </remarks>
+    private static string Bind(string column) => "v_" + column;
+
+    private static string P(ISqlDialect dialect, string name) => dialect.ParameterReference(Bind(name));
 
     private static string Type(ISqlDialect dialect, string logical) => dialect.ProviderType switch
     {
@@ -202,7 +212,7 @@ internal static class RelationalTestDatabase
         foreach (var (name, value) in parameters)
         {
             var parameter = command.CreateParameter();
-            parameter.ParameterName = name;
+            parameter.ParameterName = Bind(name);
             parameter.Value = value ?? DBNull.Value;
             command.Parameters.Add(parameter);
         }

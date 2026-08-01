@@ -1,4 +1,5 @@
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using FluentAssertions;
 using PepperX.QueryForge.Dapper.Internals;
 
@@ -41,6 +42,8 @@ public class DapperQueryServiceTests
 
     private sealed class FirebirdConnection : IDbConnection
     {
+        // IDbConnection.ConnectionString allows null on the way in; the stub keeps a non-null value.
+        [AllowNull]
         public string ConnectionString { get; set; } = "";
         public int ConnectionTimeout => 0;
         public string Database => "";

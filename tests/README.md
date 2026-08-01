@@ -145,10 +145,19 @@ Because a release tag is a bad place to discover a broken engine, run the job by
 (**Actions → Build, Test, and Publish NuGet → Run workflow**) once on the commit you intend to tag.
 It is the same job on the same containers, so a green dispatch means the tag will get the same answer.
 
-The gate has already paid for itself twice. Its first run found that the EF Core fixture dropped its
-tables with an undelimited name: Oracle folds that to upper case while EF Core creates a quoted
-lower-case table, so the drop matched nothing and `CreateTables` then failed with ORA-00955 — 125
-tests, the whole Oracle EF Core matrix. The same run showed the SQL Server container had no health
-check, meaning a slow start would have skipped its suites and handed the gate a green run that never
-touched SQL Server. Both are fixed, and `QUERYFORGE_REQUIRE_DB` now makes the second class of problem
-impossible to miss.
+The gate has already paid for itself three times, and every catch was in the fixtures rather than the
+library — which is the point: the suites cannot vouch for an engine they were never able to set up on.
+
+- **ORA-00955, 125 tests.** The EF Core fixture dropped its tables with an undelimited name. Oracle
+  folds that to upper case while EF Core creates a quoted lower-case table, so the drop matched
+  nothing and the following `CreateTables` collided with what the previous fixture had left behind.
+  The names now come from the model and are delimited by the provider's own `ISqlGenerationHelper`.
+- **No SQL Server health check.** A slow first-run upgrade would have left the engine unreachable,
+  skipping its suites and handing the gate a green run that never touched SQL Server. The container
+  has a health check now, and `QUERYFORGE_REQUIRE_DB` makes that whole class of problem impossible to
+  miss rather than merely less likely.
+- **ORA-01745, 35 tests.** The Dapper seeder named each bind variable after its column, and the order
+  table has a `Number` column — `NUMBER` is an Oracle datatype keyword, so `:Number` is rejected at
+  parse time. Bind names are prefixed now, which sidesteps the entire reserved-word collision class on
+  every engine at once. The widget table has no reserved-word column, which is exactly why this hid
+  until an order-shaped table met Oracle.

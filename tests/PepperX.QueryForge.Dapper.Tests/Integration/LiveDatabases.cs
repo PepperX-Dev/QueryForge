@@ -77,10 +77,10 @@ public static class LiveDatabases
         PostgresConnectionString is not null && CanConnect(() => new NpgsqlConnection(PostgresConnectionString)));
 
     private static readonly Lazy<bool> MySqlReachable = new(() =>
-        MySqlConnectionString is not null && CanConnect(() =>
+        MySqlConnectionString is { } mysql && CanConnect(() =>
         {
-            EnsureMySqlDatabase();
-            return new MySqlConnection(MySqlConnectionString);
+            EnsureMySqlDatabase(mysql);
+            return new MySqlConnection(mysql);
         }));
 
     private static readonly Lazy<bool> SqlServerReachable = new(() =>
@@ -182,9 +182,9 @@ public static class LiveDatabases
     }
 
     /// <summary>MySQL will not connect to a database that does not exist yet, unlike PostgreSQL.</summary>
-    private static void EnsureMySqlDatabase()
+    private static void EnsureMySqlDatabase(string connectionString)
     {
-        var builder = new MySqlConnectionStringBuilder(MySqlConnectionString);
+        var builder = new MySqlConnectionStringBuilder(connectionString);
         var database = builder.Database;
 
         builder.Database = string.Empty;
