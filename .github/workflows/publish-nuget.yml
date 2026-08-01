@@ -80,6 +80,14 @@ jobs:
           MSSQL_SA_PASSWORD: 'QueryForge!2024'
         ports:
           - 1433:1433
+        # Without a health check the job can start testing before the engine finishes its first-run
+        # upgrade, and an unreachable engine skips its suites rather than failing them.
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'QueryForge!2024' -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 30s
 
       oracle:
         image: gvenzl/oracle-free:23-slim
@@ -103,6 +111,9 @@ jobs:
 
     - name: Test against every engine
       env:
+        # Turns an unreachable engine from a skip into a failure. Without it a container that never
+        # came up would skip its suites and hand the publish gate a green run that tested nothing.
+        QUERYFORGE_REQUIRE_DB: '1'
         QUERYFORGE_POSTGRES: "Host=127.0.0.1;Port=5432;Username=postgres;Password=queryforge;Database=queryforge"
         QUERYFORGE_MYSQL: "Server=127.0.0.1;Port=3306;Uid=root;Pwd=queryforge;Database=queryforge;AllowPublicKeyRetrieval=true;SslMode=None"
         QUERYFORGE_MSSQL: "Server=127.0.0.1,1433;User Id=sa;Password=QueryForge!2024;Database=master;TrustServerCertificate=true;Encrypt=false"

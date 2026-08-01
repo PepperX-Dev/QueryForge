@@ -88,6 +88,19 @@ The tests create and drop their own tables (`qf_widget`, `qf_order`, `qf_ef_widg
 so an empty database is all they need. To confirm a server was actually used rather than skipped,
 watch the skip count fall — each engine contributes 126 tests per provider.
 
+### Making a skip a failure
+
+An unreachable engine skips its suites, which is right on a developer's machine and wrong in CI: a
+database that never started would leave a green run that tested nothing. Setting
+`QUERYFORGE_REQUIRE_DB=1` turns "configured but unreachable" into a failure, so a run cannot claim to
+have covered an engine it never touched:
+
+```bash
+QUERYFORGE_REQUIRE_DB=1 dotnet test QueryForge.slnx -c Release
+```
+
+It only judges engines you configured — an engine with no connection string is still simply absent.
+
 SQL Server and Oracle fixtures are in place for both providers and light up as soon as
 `QUERYFORGE_MSSQL` / `QUERYFORGE_ORACLE` point at an instance:
 
@@ -124,6 +137,18 @@ auditing the generated SQL against Oracle's grammar found a third:
 - **Build and test** runs on every push and pull request. It sets none of the `QUERYFORGE_*`
   variables, so the server-backed suites skip themselves and the job needs no services.
 - **Test against real databases** spins up PostgreSQL, MySQL, SQL Server and Oracle as service
-  containers and runs the full matrix. It is triggered manually (`workflow_dispatch`) and
-  automatically on a `v*.*.*` release tag, so a version cannot be published without having been
-  exercised against every engine the Dapper provider claims to support.
+  containers and runs the full matrix with `QUERYFORGE_REQUIRE_DB=1`. It is triggered manually
+  (`workflow_dispatch`) and automatically on a `v*.*.*` release tag, so a version cannot be published
+  without having been exercised against every engine the Dapper provider claims to support.
+
+Because a release tag is a bad place to discover a broken engine, run the job by hand
+(**Actions → Build, Test, and Publish NuGet → Run workflow**) once on the commit you intend to tag.
+It is the same job on the same containers, so a green dispatch means the tag will get the same answer.
+
+The gate has already paid for itself twice. Its first run found that the EF Core fixture dropped its
+tables with an undelimited name: Oracle folds that to upper case while EF Core creates a quoted
+lower-case table, so the drop matched nothing and `CreateTables` then failed with ORA-00955 — 125
+tests, the whole Oracle EF Core matrix. The same run showed the SQL Server container had no health
+check, meaning a slow start would have skipped its suites and handed the gate a green run that never
+touched SQL Server. Both are fixed, and `QUERYFORGE_REQUIRE_DB` now makes the second class of problem
+impossible to miss.

@@ -27,6 +27,14 @@ public static class LiveDatabases
     /// <summary>Set to <c>1</c> to try the built-in local defaults for engines with no variable set.</summary>
     public const string EnableVariable = "QUERYFORGE_DB_TESTS";
 
+    /// <summary>Set to <c>1</c> to fail, rather than skip, when a configured engine cannot be reached.</summary>
+    /// <remarks>
+    /// An unreachable engine is normally a skip, which is right on a developer's machine. In CI it is
+    /// dangerous: a database that never came up would quietly turn the whole matrix into a pass. This
+    /// makes the intent explicit — if a connection string was supplied, the server behind it must work.
+    /// </remarks>
+    public const string RequireVariable = "QUERYFORGE_REQUIRE_DB";
+
     private const string DefaultPostgres =
         "Host=127.0.0.1;Port=55432;Username=postgres;Database=postgres;Include Error Detail=true";
 
@@ -97,6 +105,29 @@ public static class LiveDatabases
     public static bool HasMySql => MySqlReachable.Value;
 
     public static bool HasOracle => OracleReachable.Value;
+
+    public static bool EnginesAreRequired =>
+        Environment.GetEnvironmentVariable(RequireVariable) is "1" or "true" or "True" or "TRUE";
+
+    /// <summary>The variables naming an engine that was configured but could not be reached.</summary>
+    public static IReadOnlyList<string> ConfiguredButUnreachable()
+    {
+        var missing = new List<string>();
+
+        if (PostgresConnectionString is not null && !HasPostgres)
+            missing.Add(PostgresVariable);
+
+        if (MySqlConnectionString is not null && !HasMySql)
+            missing.Add(MySqlVariable);
+
+        if (SqlServerConnectionString is not null && !HasSqlServer)
+            missing.Add(SqlServerVariable);
+
+        if (OracleConnectionString is not null && !HasOracle)
+            missing.Add(OracleVariable);
+
+        return missing;
+    }
 
     /// <summary>
     /// Opens an Oracle connection with named parameter binding switched on.

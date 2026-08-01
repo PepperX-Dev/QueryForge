@@ -66,6 +66,37 @@ public static class EfCoreEngines
     /// <summary>Set to <c>1</c> to try the built-in local defaults for engines with no variable set.</summary>
     public const string EnableVariable = "QUERYFORGE_DB_TESTS";
 
+    /// <summary>Set to <c>1</c> to fail, rather than skip, when a configured engine cannot be reached.</summary>
+    /// <remarks>
+    /// An unreachable engine is normally a skip, which is right on a developer's machine. In CI it is
+    /// dangerous: a database that never came up would quietly turn the whole matrix into a pass. This
+    /// makes the intent explicit — if a connection string was supplied, the server behind it must work.
+    /// </remarks>
+    public const string RequireVariable = "QUERYFORGE_REQUIRE_DB";
+
+    public static bool EnginesAreRequired =>
+        Environment.GetEnvironmentVariable(RequireVariable) is "1" or "true" or "True" or "TRUE";
+
+    /// <summary>The variables naming an engine that was configured but could not be reached.</summary>
+    public static IReadOnlyList<string> ConfiguredButUnreachable()
+    {
+        var missing = new List<string>();
+
+        if (Postgres is not null && !HasPostgres)
+            missing.Add(PostgresVariable);
+
+        if (MySql is not null && !HasMySql)
+            missing.Add(MySqlVariable);
+
+        if (SqlServer is not null && !HasSqlServer)
+            missing.Add(SqlServerVariable);
+
+        if (Oracle is not null && !HasOracle)
+            missing.Add(OracleVariable);
+
+        return missing;
+    }
+
     private static bool LocalDefaultsEnabled =>
         Environment.GetEnvironmentVariable(EnableVariable) is "1" or "true" or "True" or "TRUE";
 
@@ -169,10 +200,7 @@ public sealed class EfCoreFixture : IDisposable
         Context = context;
         _sqlite = sqlite;
 
-        // Only the fixture's own tables are dropped and recreated. EnsureDeleted would drop the whole
-        // database, which fails outright on a shared server and would be rude even where it works.
-        Context.Database.ExecuteSqlRaw("DROP TABLE IF EXISTS qf_ef_widget");
-        Context.Database.ExecuteSqlRaw("DROP TABLE IF EXISTS qf_ef_order");
+        DropOwnTables();
 
         var creator = (RelationalDatabaseCreator)Context.Database.GetService<IDatabaseCreator>();
         creator.CreateTables();
@@ -184,6 +212,61 @@ public sealed class EfCoreFixture : IDisposable
 
         Context.SaveChanges();
         Context.ChangeTracker.Clear();
+    }
+
+    /// <summary>
+    /// Drops the tables this fixture owns, so a run always starts from the same data no matter what a
+    /// previous one left behind.
+    /// </summary>
+    /// <remarks>
+    /// Only the fixture's own tables go. <c>EnsureDeleted</c> would drop the whole database, which
+    /// fails outright on a shared server and would be rude even where it works.
+    /// <para>
+    /// The names come from the model and are delimited by the provider's own
+    /// <see cref="ISqlGenerationHelper"/>, which is the only way to be sure the identifier written here
+    /// is the identifier <see cref="RelationalDatabaseCreator.CreateTables"/> created. Oracle folds an
+    /// undelimited name to upper case while EF Core creates a quoted lower-case one, so
+    /// <c>DROP TABLE qf_ef_widget</c> looks for <c>QF_EF_WIDGET</c>, silently matches nothing, and the
+    /// following <c>CreateTables</c> fails with ORA-00955.
+    /// </para>
+    /// </remarks>
+    private void DropOwnTables()
+    {
+        var helper = Context.Database.GetService<ISqlGenerationHelper>();
+
+        // Oracle only gained DROP TABLE IF EXISTS in 23ai, so the conditional form is not portable
+        // across the versions the provider supports. Issue the plain statement and swallow ORA-00942.
+        var oracle = Context.Database.ProviderName?.Contains("Oracle", StringComparison.OrdinalIgnoreCase) is true;
+
+        foreach (var entityType in Context.Model.GetEntityTypes())
+        {
+            var table = entityType.GetTableName();
+
+            if (table is null)
+                continue;
+
+            var name = helper.DelimitIdentifier(table, entityType.GetSchema());
+
+            // EF1002 warns about interpolation into raw SQL. A table name cannot be a parameter, and
+            // this one is not user input: it comes from the model and has just been delimited by the
+            // provider's own helper, which is the same path EF takes to write the CREATE TABLE.
+#pragma warning disable EF1002
+            if (!oracle)
+            {
+                Context.Database.ExecuteSqlRaw($"DROP TABLE IF EXISTS {name}");
+                continue;
+            }
+
+            try
+            {
+                Context.Database.ExecuteSqlRaw($"DROP TABLE {name} CASCADE CONSTRAINTS");
+            }
+            catch (Exception)
+            {
+                // ORA-00942: the table was not there to begin with, which is the desired end state.
+            }
+#pragma warning restore EF1002
+        }
     }
 
     public static EfCoreFixture Sqlite(bool seedOrders)
