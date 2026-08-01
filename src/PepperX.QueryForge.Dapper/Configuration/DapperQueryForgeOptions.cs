@@ -1,22 +1,15 @@
-﻿using System.Data;
+using System.Data;
 
 namespace PepperX.QueryForge.Dapper;
 
 /// <summary>
-/// Configuration options specific to the Dapper execution engine.
+/// Configuration options for the Dapper execution provider.
 /// </summary>
 public class DapperQueryForgeOptions
 {
     /// <summary>
-    /// The execution strategy. Defaults to <see cref="DapperExecutionApproach.DevelopAndUseSp"/>.
-    /// </summary>
-    public DapperExecutionApproach Approach { get; set; } = DapperExecutionApproach.DevelopAndUseSp;
-
-    /// <summary>
-    /// A factory function to create the ADO.NET database connection used for background initialization 
-    /// and auto-managed query execution. 
-    /// Required if <see cref="Approach"/> is set to <see cref="DapperExecutionApproach.DevelopAndUseSp"/> 
-    /// or if using the parameterless <see cref="IDapperQueryService.QueryAsync{TModel}(DapperQuery, int?, IDbTransaction?)"/>.
+    /// A factory that creates the ADO.NET connection used by the overloads which manage their own
+    /// connection. Not required when every call supplies its own <see cref="IDbConnection"/>.
     /// </summary>
     public Func<IServiceProvider, IDbConnection>? ConnectionFactory { get; set; }
 }

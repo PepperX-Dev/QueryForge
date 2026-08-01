@@ -54,7 +54,7 @@ public static class DapperQueryValidationExtensions
             if (mode == PepperX.QueryForge.QueryValidationMode.ThrowException)
                 errors.Add($"Object.Schema '{obj.Schema}' is not allowed.");
             else
-                setter(obj with { Schema = "dbo" }); // Silently fallback to default schema
+                setter(obj with { Schema = "" }); // Silently fall back to the dialect's default schema
         }
 
         // 3. Check Table/Object Name rules

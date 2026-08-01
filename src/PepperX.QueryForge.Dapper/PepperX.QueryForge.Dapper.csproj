@@ -6,10 +6,10 @@
     <Nullable>enable</Nullable>
 	  
 	<PackageId>PepperX.QueryForge.Dapper</PackageId>
-	<Version>1.0.7</Version>
+	<Version>2.0.0</Version>
 	<Authors>Amir Hossein Morady Pour</Authors>
-	<Description>High-performance execution provider for the PepperX.QueryForge core library. It translates abstract query models into optimized SQL and executes them against Microsoft SQL Server using Dapper, seamlessly handling hierarchical grouping, complex filtering, and Stored Procedure/TVF integration.</Description>
-	<PackageTags>dapper;sql-server;ado-net;mssql;execution-provider;stored-procedures;tvf;dynamic-sql;csharp;dotnet;micro-orm;sql</PackageTags>
+	<Description>High-performance execution provider for the PepperX.QueryForge core library. It compiles abstract query models into parameterized SQL and executes them with Dapper against SQL Server, PostgreSQL, MySQL/MariaDB and Oracle, handling hierarchical grouping, complex filtering, and function/procedure integration. No schema permissions or deployed database objects required.</Description>
+	<PackageTags>dapper;sql-server;postgresql;mysql;mariadb;oracle;ado-net;execution-provider;dynamic-sql;csharp;dotnet;micro-orm;sql</PackageTags>
 	<PackageLicenseExpression>MIT</PackageLicenseExpression>
 	<PackageReadmeFile>README.md</PackageReadmeFile>
 	<RepositoryUrl>https://github.com/PepperX-Dev/QueryForge/tree/main/src/PepperX.QueryForge.Dapper</RepositoryUrl>
@@ -34,7 +34,7 @@
 	
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.79" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.9" />
   </ItemGroup>
 
 </Project>

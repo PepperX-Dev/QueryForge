@@ -9,11 +9,19 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
+    <!--
+      Microsoft.AspNetCore.OpenApi already brings Microsoft.OpenApi transitively, but at 2.0.0, which
+      carries a high-severity advisory (GHSA-v5pm-xwqc-g5wc). This reference is not redundant: it
+      pins the patched version. Removing it silently reintroduces the vulnerable one.
+    -->
     <PackageReference Include="Microsoft.OpenApi" Version="2.10.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\PepperX.QueryForge.Dapper\PepperX.QueryForge.Dapper.csproj" />
+    <ProjectReference Include="..\..\src\PepperX.QueryForge.EFCore\PepperX.QueryForge.EFCore.csproj" />
+    <ProjectReference Include="..\..\src\PepperX.QueryForge.InMemory\PepperX.QueryForge.InMemory.csproj" />
   </ItemGroup>
 
 </Project>

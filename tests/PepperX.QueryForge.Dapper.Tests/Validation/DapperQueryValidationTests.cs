@@ -21,14 +21,15 @@ public class DapperQueryValidationTests
     [Fact]
     public void Validate_Object_AllowSchema_ShouldFallbackToDefaultInSilentStrip()
     {
-        var query = new DapperQuery 
-        { 
-            Object = new DapperQueryObject("Users", "secret_schema") 
+        var query = new DapperQuery
+        {
+            Object = new DapperQueryObject("Users", "secret_schema")
         };
 
         query.Validate(rules => rules.Object(o => o.AllowSchema("dbo", "app")), QueryValidationMode.SilentStrip);
 
-        query.Object!.Schema.Should().Be("dbo");
+        // Empty means "let the dialect decide", which is dbo on SQL Server and public on PostgreSQL.
+        query.Object!.Schema.Should().BeEmpty();
     }
 
     [Fact]

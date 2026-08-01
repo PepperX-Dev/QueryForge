@@ -18,7 +18,7 @@ public static class DapperQueryBuilder
     public static DapperQueryFluent FromBase(PepperX.QueryForge.Query baseQuery) => New(new DapperQuery { Criteria = baseQuery.Criteria, Paging = baseQuery.Paging, SelectColumns = baseQuery.SelectColumns, SortColumns = baseQuery.SortColumns, GroupByColumns = baseQuery.GroupByColumns });
 
     /// <summary>Starts a new chain by specifying the target SQL object.</summary>
-    public static DapperQueryFluent ForObject(string name, string schema = "dbo", DapperObjectType type = DapperObjectType.Auto, IReadOnlyDictionary<string, object?>? parameters = null)
+    public static DapperQueryFluent ForObject(string name, string schema = "", DapperObjectType type = DapperObjectType.Auto, IReadOnlyDictionary<string, object?>? parameters = null)
         => New().ForObject(name, schema, type, parameters);
 
     /// <summary>Starts a new chain by specifying columns to select.</summary>
@@ -54,7 +54,7 @@ public class DapperQueryFluent : PepperX.QueryForge.QueryFluent
     }
 
     /// <summary>Specifies the target SQL object and its parameters.</summary>
-    public DapperQueryFluent ForObject(string name, string schema = "dbo", DapperObjectType type = DapperObjectType.Auto, IReadOnlyDictionary<string, object?>? parameters = null)
+    public DapperQueryFluent ForObject(string name, string schema = "", DapperObjectType type = DapperObjectType.Auto, IReadOnlyDictionary<string, object?>? parameters = null)
     {
         _dapperQuery.Object = new DapperQueryObject(name, schema, type, parameters);
         return this;

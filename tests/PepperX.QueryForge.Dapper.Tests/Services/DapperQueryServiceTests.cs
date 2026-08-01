@@ -6,94 +6,51 @@ namespace PepperX.QueryForge.Dapper.Tests.Services;
 
 public class DapperQueryServiceTests
 {
-    private class SqlConnection : IDbConnection
+    private sealed class FakeServiceProvider : IServiceProvider
     {
-        public string ConnectionString { get; set; } = "";
-        public int ConnectionTimeout => 0;
-        public string Database => "";
-        public ConnectionState State { get; set; } = ConnectionState.Open;
-        public IDbTransaction BeginTransaction() => throw new NotImplementedException();
-        public IDbTransaction BeginTransaction(IsolationLevel il) => throw new NotImplementedException();
-        public void ChangeDatabase(string databaseName) { }
-        public void Close() { }
-        public IDbCommand CreateCommand() => throw new NotImplementedException();
-        public void Dispose() { }
-        public void Open() { State = ConnectionState.Open; }
-    }
-
-    private class FakeProvider : IDapperQueryForgeProvider
-    {
-        public DapperDatabaseProvider ProviderType => DapperDatabaseProvider.MSSQL;
-        public Task InitializeAsync(IDbConnection connection, DapperQueryForgeOptions options, CancellationToken ct = default) => Task.CompletedTask;
-
-        public Task<QueryResult<TModel>> QueryAsync<TModel>(IDbConnection connection, DapperQuery query, DapperQueryForgeOptions options, int? commandTimeout = null, CancellationToken ct = default)
-        {
-            return Task.FromResult(new QueryResult<TModel> { Meta = new QueryResultMeta(new QueryResultMetaTotal(99, 1), QueryResultType.Flat) });
-        }
-
-        public Task<QueryResult<TModel>> QueryAsync<TModel>(IDbConnection connection, DapperQuery query, DapperQueryForgeOptions options, int? commandTimeout = null, IDbTransaction? transaction = null)
-        {
-            return Task.FromResult(new QueryResult<TModel> { Meta = new QueryResultMeta(new QueryResultMetaTotal(99, 1), QueryResultType.Flat) });
-        }
+        public object? GetService(Type serviceType) => null;
     }
 
     [Fact]
-    public async Task QueryAsync_WithConnection_ShouldDelegateToProvider()
+    public async Task QueryAsync_WithoutConnection_AndNoFactory_ShouldExplainHowToFixIt()
     {
-        var options = new DapperQueryForgeOptions();
-        var registry = new DapperRegistry(options);
-        registry.Register(new FakeProvider());
+        var registry = new DapperRegistry(new DapperQueryForgeOptions { ConnectionFactory = null });
+        var service = new DapperQueryService(registry, new FakeServiceProvider());
 
-        var serviceProvider = new FakeServiceProvider();
-        var service = new DapperQueryService(registry, serviceProvider);
-
-        var query = DapperQueryBuilder.New().ForObject("Users").Build();
-        var connection = new SqlConnection();
-
-        var result = await service.QueryAsync<object>(connection, query);
-
-        result.Meta.Total.Rows.Should().Be(99);
-    }
-
-    [Fact]
-    public async Task QueryAsync_WithoutConnection_ShouldUseConnectionFactory()
-    {
-        var options = new DapperQueryForgeOptions
-        {
-            ConnectionFactory = sp => new SqlConnection()
-        };
-        var registry = new DapperRegistry(options);
-        registry.Register(new FakeProvider());
-
-        var serviceProvider = new FakeServiceProvider();
-        var service = new DapperQueryService(registry, serviceProvider);
-
-        var query = DapperQueryBuilder.New().ForObject("Users").Build();
-
-        var result = await service.QueryAsync<object>(query);
-
-        result.Meta.Total.Rows.Should().Be(99);
-    }
-
-    [Fact]
-    public async Task QueryAsync_WithoutConnection_AndNoFactory_ShouldThrow()
-    {
-        var options = new DapperQueryForgeOptions { ConnectionFactory = null };
-        var registry = new DapperRegistry(options);
-        var serviceProvider = new FakeServiceProvider();
-        var service = new DapperQueryService(registry, serviceProvider);
-
-        var query = DapperQueryBuilder.New().ForObject("Users").Build();
+        var query = DapperQueryBuilder.ForObject("Users").Build();
 
         var act = async () => await service.QueryAsync<object>(query);
 
         await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*ConnectionFactory was not configured*");
+            .WithMessage("*ConnectionFactory was not configured*")
+            .WithMessage("*takes an IDbConnection*");
     }
 
-    // Minimal IServiceProvider implementation for testing
-    private class FakeServiceProvider : IServiceProvider
+    [Fact]
+    public async Task QueryAsync_WithAnUnsupportedConnection_ShouldThrow()
     {
-        public object? GetService(Type serviceType) => null;
+        var registry = new DapperRegistry(new DapperQueryForgeOptions());
+        var service = new DapperQueryService(registry, new FakeServiceProvider());
+
+        var query = DapperQueryBuilder.ForObject("Users").Build();
+
+        var act = async () => await service.QueryAsync<object>(new FirebirdConnection(), query);
+
+        await act.Should().ThrowAsync<NotSupportedException>();
+    }
+
+    private sealed class FirebirdConnection : IDbConnection
+    {
+        public string ConnectionString { get; set; } = "";
+        public int ConnectionTimeout => 0;
+        public string Database => "";
+        public ConnectionState State => ConnectionState.Open;
+        public IDbTransaction BeginTransaction() => throw new NotSupportedException();
+        public IDbTransaction BeginTransaction(IsolationLevel il) => throw new NotSupportedException();
+        public void ChangeDatabase(string databaseName) { }
+        public void Close() { }
+        public IDbCommand CreateCommand() => throw new NotSupportedException();
+        public void Dispose() { }
+        public void Open() { }
     }
 }

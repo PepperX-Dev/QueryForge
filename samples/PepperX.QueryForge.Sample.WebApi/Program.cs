@@ -1,5 +1,8 @@
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using PepperX.QueryForge.Dapper;
+using PepperX.QueryForge.EFCore;
+using PepperX.QueryForge.InMemory;
 using System.Data;
 
 namespace PepperX.QueryForge.Sample.WebApi
@@ -19,6 +22,11 @@ namespace PepperX.QueryForge.Sample.WebApi
                         # 🚀 Welcome to PepperX.QueryForge
             
                         This API demonstrates the full capabilities of the QueryForge dynamic query engine using .NET 10 Minimal APIs.
+
+                        Every endpoint accepts the **same** `Query` body. Groups 1-5 execute it through
+                        **Dapper**, group 6 through **Entity Framework Core**, and group 7 against an
+                        **in-memory** collection — so you can post one payload to all three and compare
+                        the responses.
             
                         ### ⚠️ Prerequisites
                         Before testing these endpoints, you **must** run the `Scripts.sql` file (located in the root of this project) against your SQL Server database. 
@@ -29,7 +37,8 @@ namespace PepperX.QueryForge.Sample.WebApi
                         3. The `tvf_GetUsersByTenant` Table-Valued Function.
                         4. The `usp_GetUserReport` Stored Procedure.
             
-                        *(Note: The core `usp_QueryForge` engine procedures are automatically deployed by the library's background initialization service on startup, so you don't need to create them manually).*
+                        *(Note: QueryForge itself needs nothing deployed to your database. It compiles
+                        parameterized SQL at query time, so no schema permissions are required.)*
                         """;
 
                     return Task.CompletedTask;
@@ -44,13 +53,21 @@ namespace PepperX.QueryForge.Sample.WebApi
 
             builder.Services.AddQueryForgeDapper(options =>
             {
-                options.Approach = DapperExecutionApproach.DevelopAndUseSp;
                 options.ConnectionFactory = sp =>
                 {
                     var config = sp.GetRequiredService<IConfiguration>();
                     return new SqlConnection(config.GetConnectionString("DefaultConnection"));
                 };
             });
+
+            builder.Services.AddDbContext<SampleDbContext>(options =>
+            {
+                var config = builder.Configuration;
+                options.UseSqlServer(config.GetConnectionString("DefaultConnection"));
+            });
+
+            // The in-memory provider needs no registration at all; this is just the sample data.
+            builder.Services.AddSingleton<IReadOnlyList<TestUser>>(SampleData.Users);
 
             var app = builder.Build();
 
@@ -253,6 +270,89 @@ namespace PepperX.QueryForge.Sample.WebApi
             .WithSummary("Executes against a Stored Procedure.")
             .Accepts<Query>("application/json").Produces<QueryResult<TestUser>>();
 
+            // ==========================================
+            // GROUP 6: ENTITY FRAMEWORK CORE PROVIDER
+            // ==========================================
+            var efApi = app.MapGroup("/api/efcore/users").WithTags("6. EF Core Provider");
+
+            efApi.MapPost("/query", async (Query q, SampleDbContext db) =>
+                await db.Users.AsNoTracking().ToQueryResultAsync<TestUser>(q))
+            .WithName("EfCoreFlatQuery")
+            .WithSummary("Flat query through EF Core.")
+            .WithDescription("The same Query body as the Dapper endpoints. EF Core generates the SQL, so this works on any database EF Core supports.")
+            .Accepts<Query>("application/json").Produces<QueryResult<TestUser>>();
+
+            efApi.MapPost("/grouped-query", async (Query q, SampleDbContext db) =>
+            {
+                q.Validate(rules => rules.GroupBy(c => c.Allow("Country", "Department", "Role")),
+                    QueryValidationMode.SilentStrip);
+
+                return await db.Users.AsNoTracking().ToQueryResultAsync<TestUser>(q);
+            })
+            .WithName("EfCoreGroupedQuery")
+            .WithSummary("Grouped query through EF Core.")
+            .WithDescription("Send groupByColumns to get a nested key/count/items tree. Paging applies to the outermost group.")
+            .Accepts<Query>("application/json").Produces<QueryResult<TestUser>>();
+
+            efApi.MapPost("/scoped", async (Query q, SampleDbContext db) =>
+                // A server-side restriction the client cannot query away.
+                await db.Users.AsNoTracking().Where(u => u.IsActive).ToQueryResultAsync<TestUser>(q))
+            .WithName("EfCoreScopedQuery")
+            .WithSummary("Composes with an existing IQueryable restriction.")
+            .WithDescription("Demonstrates that a Where applied before QueryForge survives — the pattern to use for tenant isolation.")
+            .Accepts<Query>("application/json").Produces<QueryResult<TestUser>>();
+
+            efApi.MapPost("/sql", (Query q, SampleDbContext db) =>
+                Results.Text(db.Users.ApplyQuery(q).ToQueryString(), "text/plain"))
+            .WithName("EfCoreShowSql")
+            .WithSummary("Returns the SQL EF Core would run, without executing it.")
+            .WithDescription("Useful for seeing that values become parameters rather than inlined literals.")
+            .Accepts<Query>("application/json").Produces<string>();
+
+            // ==========================================
+            // GROUP 7: IN-MEMORY PROVIDER
+            // ==========================================
+            var memApi = app.MapGroup("/api/inmemory/users").WithTags("7. In-Memory Provider");
+
+            memApi.MapPost("/query", (Query q, IReadOnlyList<TestUser> users) =>
+                users.ToQueryResult(q))
+            .WithName("InMemoryFlatQuery")
+            .WithSummary("Flat query against a plain in-memory collection.")
+            .WithDescription("No database involved. Runs against the sample data held in memory, and needs no connection string to try.")
+            .Accepts<Query>("application/json").Produces<QueryResult<TestUser>>();
+
+            memApi.MapPost("/grouped-query", (Query q, IReadOnlyList<TestUser> users) =>
+                users.ToQueryResult(q))
+            .WithName("InMemoryGroupedQuery")
+            .WithSummary("Grouped query against an in-memory collection.")
+            .WithDescription("Produces the same hierarchy shape as the Dapper and EF Core endpoints.")
+            .Accepts<Query>("application/json").Produces<QueryResult<TestUser>>();
+
+            memApi.MapPost("/validated", (Query q, IReadOnlyList<TestUser> users) =>
+            {
+                try
+                {
+                    q.Validate(rules =>
+                    {
+                        rules.Select(c => c.Deny("DeletedAt"));
+                        rules.PageSize(p => p.Max(50));
+                    }, QueryValidationMode.ThrowException);
+
+                    return Results.Ok(users.ToQueryResult(q));
+                }
+                catch (QueryValidationException ex)
+                {
+                    return Results.ValidationProblem(
+                        ex.InvalidProperties.ToDictionary(x => x, x => new[] { "Denied by security policy" }));
+                }
+            })
+            .WithName("InMemoryValidatedQuery")
+            .WithSummary("Strict validation, no database required.")
+            .WithDescription("Ask for DeletedAt or a page size above 50 to see a 400 response.")
+            .Accepts<Query>("application/json")
+            .Produces<QueryResult<TestUser>>(StatusCodes.Status200OK)
+            .ProducesValidationProblem();
+
             app.Run();
         }
     }
@@ -272,5 +372,55 @@ namespace PepperX.QueryForge.Sample.WebApi
         public DateTime CreatedOn { get; set; }
         public DateTime? DeletedAt { get; set; }
         public string Role { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Minimal EF Core context over the same TestUsers table the Dapper endpoints use, so the two
+    /// providers can be pointed at identical data.
+    /// </summary>
+    public class SampleDbContext(DbContextOptions<SampleDbContext> options) : DbContext(options)
+    {
+        public DbSet<TestUser> Users => Set<TestUser>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<TestUser>(entity =>
+            {
+                entity.ToTable("TestUsers");
+                entity.HasKey(u => u.UserId);
+            });
+        }
+    }
+
+    /// <summary>
+    /// Seed rows for the in-memory endpoints, so that group 7 is runnable with no database at all.
+    /// </summary>
+    public static class SampleData
+    {
+        public static IReadOnlyList<TestUser> Users { get; } = Build();
+
+        private static TestUser[] Build()
+        {
+            string[] countries = ["Germany", "Canada", "Iran", "Japan"];
+            string[] departments = ["HR", "IT", "Sales", "Marketing"];
+            string[] roles = ["Lead", "Member"];
+
+            return Enumerable.Range(1, 40).Select(i => new TestUser
+            {
+                UserId = i,
+                FirstName = $"First{i}",
+                LastName = $"Last{i}",
+                Email = $"user{i}@example.com",
+                Country = countries[i % countries.Length],
+                City = $"City{i % 7}",
+                Department = departments[i % departments.Length],
+                Age = 20 + (i % 40),
+                Score = 40 + (i % 60),
+                IsActive = i % 3 != 0,
+                CreatedOn = new DateTime(2020, 1, 1).AddDays(i * 7),
+                DeletedAt = i % 11 == 0 ? new DateTime(2024, 1, 1) : null,
+                Role = roles[i % roles.Length]
+            }).ToArray();
+        }
     }
 }

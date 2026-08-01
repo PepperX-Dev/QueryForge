@@ -4,16 +4,22 @@ on:
   push:
     branches: [ "main" ]
     tags:
-      - 'v*.*.*' 
+      - 'v*.*.*'
   pull_request:
     branches: [ "main" ]
+  # Lets the database-backed suites be run on demand without waiting for a push.
+  workflow_dispatch:
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
+  # The fast path every push and pull request takes. Nothing here needs a database server:
+  # the SQLite and in-memory suites run in-process, and the PostgreSQL, MySQL, SQL Server and
+  # Oracle suites skip themselves because none of the QUERYFORGE_* variables are set.
   build-and-test:
+    name: Build and test
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -32,8 +38,79 @@ jobs:
     - name: Test
       run: dotnet test -c Release --no-build --verbosity normal
 
+  # The full matrix, against real database servers. It runs on a manual dispatch and on the
+  # release tags, so a version is never published without having been exercised on every engine
+  # the Dapper provider claims to support.
+  database-tests:
+    name: Test against real databases
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: queryforge
+          POSTGRES_DB: queryforge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: queryforge
+          MYSQL_DATABASE: queryforge
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_SA_PASSWORD: 'QueryForge!2024'
+        ports:
+          - 1433:1433
+
+      oracle:
+        image: gvenzl/oracle-free:23-slim
+        env:
+          ORACLE_PASSWORD: queryforge
+        ports:
+          - 1521:1521
+        options: >-
+          --health-cmd healthcheck.sh
+          --health-interval 20s
+          --health-timeout 10s
+          --health-retries 20
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Test against every engine
+      env:
+        QUERYFORGE_POSTGRES: "Host=127.0.0.1;Port=5432;Username=postgres;Password=queryforge;Database=queryforge"
+        QUERYFORGE_MYSQL: "Server=127.0.0.1;Port=3306;Uid=root;Pwd=queryforge;Database=queryforge;AllowPublicKeyRetrieval=true;SslMode=None"
+        QUERYFORGE_MSSQL: "Server=127.0.0.1,1433;User Id=sa;Password=QueryForge!2024;Database=master;TrustServerCertificate=true;Encrypt=false"
+        QUERYFORGE_ORACLE: "User Id=system;Password=queryforge;Data Source=127.0.0.1:1521/FREEPDB1"
+      run: dotnet test -c Release --verbosity normal
+
   publish:
-    needs: build-and-test
+    needs: [ build-and-test, database-tests ]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:

@@ -12,13 +12,25 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
+    <PackageReference Include="MySqlConnector" Version="2.6.1" />
+    <PackageReference Include="Npgsql" Version="10.0.3" />
+    <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.300" />
+    <!--
+      Microsoft.Data.Sqlite pulls SQLitePCLRaw 2.1.11 transitively, whose bundled native SQLite has a
+      high-severity advisory (GHSA-2m69-gcr7-jv3q). Pinning the 3.x bundle takes the patched native
+      library instead. Test-only either way — no shipped package references SQLite.
+    -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
 	<PackageReference Include="FluentAssertions" Version="8.10.0" />
+	<PackageReference Include="Xunit.SkippableFact" Version="1.5.61" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,6 +40,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\PepperX.QueryForge\PepperX.QueryForge.csproj" />
     <ProjectReference Include="..\..\src\PepperX.QueryForge.Dapper\PepperX.QueryForge.Dapper.csproj" />
+    <ProjectReference Include="..\PepperX.QueryForge.Conformance\PepperX.QueryForge.Conformance.csproj" />
   </ItemGroup>
 
 </Project>

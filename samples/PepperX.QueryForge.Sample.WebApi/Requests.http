@@ -1,10 +1,52 @@
 @baseUrl = http://localhost:5212
 
 ### ==========================================================================
-### GROUP 1: CORE FLAT QUERIES
+### QueryForge Sample API — every endpoint in Program.cs
+### ==========================================================================
+###
+### START HERE: Group 7 (In-Memory) needs no database at all. Run the project
+### and send those requests immediately — same Query in, same QueryResult out
+### as the database-backed groups.
+###
+### Groups 1-6 query SQL Server. Before using them:
+###   1. Run Scripts.sql against your database. It creates TestUsers plus the
+###      view, table-valued function and stored procedure that group 5 uses.
+###   2. Set ConnectionStrings:DefaultConnection in appsettings.json.
+### QueryForge itself deploys nothing and needs no schema permissions.
+###
+### --------------------------------------------------------------------------
+### Enum values (the API binds enums as numbers, not names)
+### --------------------------------------------------------------------------
+### Logic               0=And  1=Or  2=AndNot  3=OrNot
+### SortOrder           0=Ascending  1=Descending
+### ConditionOperator   0=Equals              1=NotEquals
+###                     2=Contains            3=NotContains
+###                     4=StartsWith          5=EndsWith
+###                     6=LessThan            7=GreaterThan
+###                     8=LessThanOrEqualTo   9=GreaterThanOrEqualTo
+###                     10=Between
+###
+### --------------------------------------------------------------------------
+### The five things a Query can carry
+### --------------------------------------------------------------------------
+### criteria        filter groups; groups combine by criteria.logic, conditions
+###                 inside a group by that group's own logic
+### paging          { size, number } — 1-based. On a grouped query, size counts
+###                 top-level GROUPS, not rows
+### selectColumns   narrows the columns returned; unselected ones come back at
+###                 their default
+### sortColumns     applied in order, each with its own direction
+### groupByColumns  turns the flat result into a key/count/items hierarchy
+###
+### Anything naming a column that does not exist is dropped, never executed.
 ### ==========================================================================
 
-# 1. Standard Flat Query
+
+### ==========================================================================
+### GROUP 1: CORE FLAT QUERIES  (Dapper — needs SQL Server)
+### ==========================================================================
+
+# 1. Standard flat query — top scores first, via the injected service.
 POST {{baseUrl}}/api/users/query
 Content-Type: application/json
 
@@ -15,101 +57,186 @@ Content-Type: application/json
 
 ###
 
-# 2. Raw Connection Extension
+# 2. The same query through the IDbConnection extension instead of the service.
 POST {{baseUrl}}/api/users/query-raw
 Content-Type: application/json
 
 {
-  "paging": { "size": 5, "number": 1 }
+  "paging": { "size": 5, "number": 1 },
+  "sortColumns": [ { "columnName": "UserId", "sortOrder": 0 } ]
 }
 
 ###
 
-# 3. Column Projection (Bandwidth Saving)
+# 3. Column projection — only these four are fetched. Everything else comes back
+#    null/0, which is how you can tell the SELECT really narrowed.
 POST {{baseUrl}}/api/users/projection
 Content-Type: application/json
 
 {
-  "selectColumns": ["UserId", "FirstName", "Email", "Score"],
-  "paging": { "size": 10, "number": 1 }
+  "selectColumns": [ "UserId", "FirstName", "Country", "Score" ],
+  "paging": { "size": 10, "number": 1 },
+  "sortColumns": [ { "columnName": "Score", "sortOrder": 1 } ]
 }
 
 ###
 
-# 4. Deep Pagination (Page 5)
+# 4. Deep pagination — page 5. meta.total stays the count of the whole filtered
+#    set, not of this page.
 POST {{baseUrl}}/api/users/deep-pagination
 Content-Type: application/json
 
 {
-  "paging": { "size": 10, "number": 5 },
+  "paging": { "size": 5, "number": 5 },
   "sortColumns": [ { "columnName": "UserId", "sortOrder": 0 } ]
 }
 
+###
+
+# 5. No inputs at all — the defaults apply: page 1, size 12, no filter.
+POST {{baseUrl}}/api/users/query
+Content-Type: application/json
+
+{}
+
+
 ### ==========================================================================
-### GROUP 2: ADVANCED FILTERING
+### GROUP 2: ADVANCED FILTERING  (Dapper — needs SQL Server)
 ### ==========================================================================
 
-# 5. Text Search (Contains / StartsWith)
-# Operator 2 = Contains, Operator 4 = StartsWith
+# 6. Text search — Contains. The value is escaped, so a % or _ typed by a user
+#    matches literally instead of acting as a wildcard.
 POST {{baseUrl}}/api/users/filters/text-search
 Content-Type: application/json
 
 {
   "criteria": {
+    "logic": 0,
     "groups": [
       {
+        "logic": 0,
         "conditions": [
-          { "columnName": "Email", "operator": 5, "value": "@test.com" },
-          { "columnName": "FirstName", "operator": 4, "value": "First" }
+          { "columnName": "Email", "operator": 2, "value": "user1" }
         ]
       }
     ]
-  }
+  },
+  "paging": { "size": 20, "number": 1 }
 }
 
 ###
 
-# 6. Null Checks (IS NULL / IS NOT NULL)
-# Operator 0 (Equals) + null value = IS NULL
-# Operator 1 (NotEquals) + null value = IS NOT NULL
+# 7. StartsWith and EndsWith in one group — both must hold.
+POST {{baseUrl}}/api/users/filters/text-search
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "FirstName", "operator": 4, "value": "First" },
+          { "columnName": "Email", "operator": 5, "value": "@test.com" }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 10, "number": 1 }
+}
+
+###
+
+# 8. IS NULL — Equals with a null value. This is the one case where a missing
+#    value is a deliberate filter rather than an unfilled one.
 POST {{baseUrl}}/api/users/filters/null-checks
 Content-Type: application/json
 
 {
   "criteria": {
+    "logic": 0,
     "groups": [
       {
+        "logic": 0,
         "conditions": [
           { "columnName": "DeletedAt", "operator": 0, "value": null }
         ]
       }
     ]
-  }
+  },
+  "paging": { "size": 20, "number": 1 }
 }
 
 ###
 
-# 7. Range Filtering (Between)
-# Operator 10 = Between. Requires 'value' and 'valueTo'.
+# 9. IS NOT NULL — the soft-deleted rows only.
+POST {{baseUrl}}/api/users/filters/null-checks
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "DeletedAt", "operator": 1, "value": null }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 20, "number": 1 }
+}
+
+###
+
+# 10. Between — inclusive at both ends. Needs both value and valueTo.
 POST {{baseUrl}}/api/users/filters/range
 Content-Type: application/json
 
 {
   "criteria": {
+    "logic": 0,
     "groups": [
       {
+        "logic": 0,
         "conditions": [
-          { "columnName": "Score", "operator": 10, "value": 75.5, "valueTo": 95.0 }
+          { "columnName": "Score", "operator": 10, "value": 55, "valueTo": 70 }
         ]
       }
     ]
-  }
+  },
+  "paging": { "size": 20, "number": 1 },
+  "sortColumns": [ { "columnName": "Score", "sortOrder": 0 } ]
 }
 
 ###
 
-# 8. Complex Logic (OR / AND NOT)
-# Logic 1 = Or, Logic 3 = OrNot
+# 11. A date range sent as ISO strings. Values are coerced to the column's real
+#     type before binding, so text works against a datetime column.
+POST {{baseUrl}}/api/users/filters/range
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "CreatedOn", "operator": 10, "value": "2026-06-01", "valueTo": "2026-06-30" }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 20, "number": 1 }
+}
+
+###
+
+# 12. Two groups joined by AND, with OR inside the first:
+#     (Country = Germany OR Country = Japan) AND IsActive = true
 POST {{baseUrl}}/api/users/filters/complex-logic
 Content-Type: application/json
 
@@ -120,110 +247,577 @@ Content-Type: application/json
       {
         "logic": 1,
         "conditions": [
-          { "columnName": "Country", "operator": 0, "value": "USA" },
-          { "columnName": "Country", "operator": 0, "value": "Germany" }
+          { "columnName": "Country", "operator": 0, "value": "Germany" },
+          { "columnName": "Country", "operator": 0, "value": "Japan" }
         ]
       },
       {
-        "logic": 3,
+        "logic": 0,
         "conditions": [
-          { "columnName": "Role", "operator": 0, "value": "Guest" }
+          { "columnName": "IsActive", "operator": 0, "value": true }
         ]
       }
     ]
-  }
+  },
+  "paging": { "size": 20, "number": 1 }
 }
 
+###
+
+# 13. A negated group — everything except the IT department. NOT (Department =
+#     'IT'). A null column stays out either way, which is SQL's three-valued
+#     logic and what every QueryForge provider reproduces.
+POST {{baseUrl}}/api/users/filters/complex-logic
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 2,
+        "conditions": [
+          { "columnName": "Department", "operator": 0, "value": "IT" }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 20, "number": 1 }
+}
+
+###
+
+# 14. An untouched filter form — conditions with no value are ignored, not
+#     treated as "match nothing". This returns everything.
+POST {{baseUrl}}/api/users/filters/complex-logic
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "Country", "operator": 2, "value": null },
+          { "columnName": "Score", "operator": 7, "value": null }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 5, "number": 1 }
+}
+
+
 ### ==========================================================================
-### GROUP 3: SECURITY & VALIDATION
+### GROUP 3: SECURITY & VALIDATION  (Dapper — needs SQL Server)
 ### ==========================================================================
 
-# 9. Silent Strip (Sanitizes invalid requests silently)
-# Ask for DeletedAt and size 500. Backend strips column and clamps size to 100.
+# 15. SilentStrip — asks for the denied DeletedAt column and an oversized page.
+#     Both are quietly corrected and the request still succeeds: expect 200, no
+#     deletedAt value, and at most 100 rows.
 POST {{baseUrl}}/api/users/security/silent-strip
 Content-Type: application/json
 
 {
-  "selectColumns": ["UserId", "Email", "DeletedAt"],
-  "paging": { "size": 500, "number": 1 }
+  "selectColumns": [ "UserId", "FirstName", "DeletedAt" ],
+  "paging": { "size": 5000, "number": 1 }
 }
 
 ###
 
-# 10. Strict Validation (Returns 400 Bad Request)
-# Ask for PasswordHash. Backend throws QueryValidationException -> 400 ProblemDetails.
+# 16. ThrowException — asks for denied columns and gets 400 with a
+#     ValidationProblem listing them.
 POST {{baseUrl}}/api/users/security/strict-validation
 Content-Type: application/json
 
 {
-  "selectColumns": ["UserId", "Email", "PasswordHash"]
+  "selectColumns": [ "UserId", "PasswordHash", "SecretKey" ],
+  "paging": { "size": 10, "number": 1 }
 }
 
+###
+
+# 17. An injection attempt in a column name. The name is not on the whitelist, so
+#     it never reaches SQL — expect a normal 200 and an intact table.
+POST {{baseUrl}}/api/users/query
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "UserId]; DROP TABLE TestUsers; --", "operator": 0, "value": 1 }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 5, "number": 1 }
+}
+
+###
+
+# 18. An injection attempt in a value. Values are always parameters, so this is
+#     just a name nobody has — expect zero rows and an intact table.
+POST {{baseUrl}}/api/users/query
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "FirstName", "operator": 0, "value": "'; DELETE FROM TestUsers; --" }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 5, "number": 1 }
+}
+
+
 ### ==========================================================================
-### GROUP 4: HIERARCHIES & GROUPING
+### GROUP 4: HIERARCHIES & GROUPING  (Dapper — needs SQL Server)
 ### ==========================================================================
 
-# 11. 2-Level Grouping (Country -> Department)
+# 19. Two levels: Country -> Department. paging.size counts countries here, not
+#     users, and every count is a true total of the rows beneath that node.
 POST {{baseUrl}}/api/users/hierarchy/grouped-2-level
 Content-Type: application/json
 
 {
-  "paging": { "size": 3, "number": 1 }
+  "paging": { "size": 5, "number": 1 },
+  "sortColumns": [ { "columnName": "Score", "sortOrder": 1 } ]
 }
 
 ###
 
-# 12. 3-Level Grouping (Country -> Department -> Role)
+# 20. Three levels: Country -> Department -> Role, with the leaf rows projected
+#     down to three columns.
 POST {{baseUrl}}/api/users/hierarchy/grouped-3-level
 Content-Type: application/json
 
 {
-  "paging": { "size": 2, "number": 1 }
+  "paging": { "size": 3, "number": 1 },
+  "selectColumns": [ "UserId", "FirstName", "Score" ],
+  "sortColumns": [ { "columnName": "Score", "sortOrder": 1 } ]
 }
 
 ###
 
-# 13. Filtered Grouping (Active Users Only, Grouped by Country)
+# 21. Filter first, then group — active users only, grouped by country.
 POST {{baseUrl}}/api/users/hierarchy/grouped-filtered
 Content-Type: application/json
 
 {
   "criteria": {
-    "groups": [ { "conditions": [ { "columnName": "IsActive", "operator": 0, "value": true } ] } ]
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "IsActive", "operator": 0, "value": true }
+        ]
+      }
+    ]
   },
-  "paging": { "size": 5, "number": 1 }
+  "paging": { "size": 10, "number": 1 }
 }
 
+###
+
+# 22. The second page of groups — continues where request 19 left off.
+POST {{baseUrl}}/api/users/hierarchy/grouped-2-level
+Content-Type: application/json
+
+{
+  "paging": { "size": 2, "number": 2 }
+}
+
+
 ### ==========================================================================
-### GROUP 5: DATABASE OBJECTS
+### GROUP 5: DATABASE OBJECTS  (Dapper — needs Scripts.sql to have been run)
 ### ==========================================================================
 
-# 14. Query a View
+# 23. A view. Filtering, sorting and paging apply on top exactly as for a table.
 POST {{baseUrl}}/api/objects/view
 Content-Type: application/json
 
 {
-  "paging": { "size": 10, "number": 1 }
+  "paging": { "size": 10, "number": 1 },
+  "sortColumns": [ { "columnName": "Score", "sortOrder": 1 } ]
 }
 
 ###
 
-# 15. Query a Table-Valued Function (TVF)
+# 24. A table-valued function. Its own argument is set server-side by the
+#     endpoint; the client still controls filter, sort and paging.
 POST {{baseUrl}}/api/objects/tvf
 Content-Type: application/json
 
 {
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "Score", "operator": 9, "value": 60 }
+        ]
+      }
+    ]
+  },
   "paging": { "size": 10, "number": 1 }
 }
 
 ###
 
-# 16. Query a Stored Procedure
+# 25. A stored procedure. Its result set cannot be composed into a larger SELECT
+#     portably, so the rows are materialized and then filtered, sorted, paged and
+#     grouped in memory — same result, different execution path.
 POST {{baseUrl}}/api/objects/stored-procedure
 Content-Type: application/json
 
 {
   "criteria": {
-    "groups": [ { "conditions": [ { "columnName": "Age", "operator": 7, "value": 30 } ] } ]
-  }
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "Age", "operator": 7, "value": 30 }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 10, "number": 1 },
+  "sortColumns": [ { "columnName": "UserId", "sortOrder": 0 } ]
 }
+
+
+### ==========================================================================
+### GROUP 6: EF CORE PROVIDER  (needs SQL Server — same table as groups 1-5)
+### ==========================================================================
+### The same Query body as the Dapper endpoints. EF Core generates the SQL from
+### an expression tree, so this works on any database EF Core supports.
+
+# 26. Flat query through EF Core. Compare the response to request 1.
+POST {{baseUrl}}/api/efcore/users/query
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "Score", "operator": 7, "value": 60 }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 10, "number": 1 },
+  "sortColumns": [ { "columnName": "Score", "sortOrder": 1 } ]
+}
+
+###
+
+# 27. Grouped through EF Core. Only Country, Department and Role are groupable
+#     here — the endpoint allows those and strips anything else.
+POST {{baseUrl}}/api/efcore/users/grouped-query
+Content-Type: application/json
+
+{
+  "paging": { "size": 5, "number": 1 },
+  "groupByColumns": [
+    { "columnName": "Country", "sortOrder": 0 },
+    { "columnName": "Department", "sortOrder": 0 }
+  ]
+}
+
+###
+
+# 28. A grouping column the endpoint does not allow. It is stripped, so the
+#     result comes back flat rather than failing.
+POST {{baseUrl}}/api/efcore/users/grouped-query
+Content-Type: application/json
+
+{
+  "paging": { "size": 5, "number": 1 },
+  "groupByColumns": [ { "columnName": "Email", "sortOrder": 0 } ]
+}
+
+###
+
+# 29. Composes with a server-side restriction: the endpoint applies
+#     Where(u => u.IsActive) before QueryForge, and the client cannot query it
+#     away. Asking for inactive users returns nothing, not the inactive ones.
+POST {{baseUrl}}/api/efcore/users/scoped
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "IsActive", "operator": 0, "value": false }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 20, "number": 1 }
+}
+
+###
+
+# 30. Returns the SQL EF Core would run, without executing it. Useful for
+#     confirming that values become parameters rather than inlined literals.
+POST {{baseUrl}}/api/efcore/users/sql
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "Country", "operator": 0, "value": "Germany" },
+          { "columnName": "Score", "operator": 9, "value": 50 }
+        ]
+      }
+    ]
+  },
+  "selectColumns": [ "UserId", "FirstName", "Score" ],
+  "paging": { "size": 10, "number": 2 },
+  "sortColumns": [ { "columnName": "Score", "sortOrder": 1 } ]
+}
+
+
+### ==========================================================================
+### GROUP 7: IN-MEMORY PROVIDER  (no database, no configuration)
+### ==========================================================================
+### Runs against 40 seeded users held in memory. Start here — these work the
+### moment the project is running.
+###
+### The seed, so you can predict the answers:
+###   Country      Germany, Canada, Iran, Japan  (10 each)
+###   Department   HR, IT, Sales, Marketing
+###   Role         Lead (even UserId), Member (odd UserId)
+###   Score        41-80        Age  20-59
+###   IsActive     false for every third user (13 of the 40)
+###   DeletedAt    set for UserId 11, 22 and 33 only
+
+# 31. Flat query, no filter — the defaults: page 1, size 12.
+POST {{baseUrl}}/api/inmemory/users/query
+Content-Type: application/json
+
+{}
+
+###
+
+# 32. Filter and sort — Iranian users, highest score first. Expect 10 rows.
+POST {{baseUrl}}/api/inmemory/users/query
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "Country", "operator": 0, "value": "Iran" }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 20, "number": 1 },
+  "sortColumns": [ { "columnName": "Score", "sortOrder": 1 } ]
+}
+
+###
+
+# 33. Projection — only three columns come back populated, the rest at their
+#     defaults. Compare with request 32 to see the difference.
+POST {{baseUrl}}/api/inmemory/users/query
+Content-Type: application/json
+
+{
+  "selectColumns": [ "UserId", "FirstName", "Country" ],
+  "paging": { "size": 5, "number": 1 },
+  "sortColumns": [ { "columnName": "UserId", "sortOrder": 0 } ]
+}
+
+###
+
+# 34. A numeric value sent as text — JSON has no int/decimal distinction, so
+#     "50" still compares as a number rather than lexically.
+POST {{baseUrl}}/api/inmemory/users/query
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "Score", "operator": 7, "value": "50" }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 50, "number": 1 },
+  "sortColumns": [ { "columnName": "Score", "sortOrder": 0 } ]
+}
+
+###
+
+# 35. The soft-deleted users — expect UserId 11, 22 and 33.
+POST {{baseUrl}}/api/inmemory/users/query
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "DeletedAt", "operator": 1, "value": null }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 20, "number": 1 }
+}
+
+###
+
+# 36. Multi-level sort — country ascending, then score descending within each.
+POST {{baseUrl}}/api/inmemory/users/query
+Content-Type: application/json
+
+{
+  "selectColumns": [ "UserId", "Country", "Score" ],
+  "paging": { "size": 40, "number": 1 },
+  "sortColumns": [
+    { "columnName": "Country", "sortOrder": 0 },
+    { "columnName": "Score", "sortOrder": 1 }
+  ]
+}
+
+###
+
+# 37. Grouped by country — four groups of ten. meta.total counts GROUPS.
+POST {{baseUrl}}/api/inmemory/users/grouped-query
+Content-Type: application/json
+
+{
+  "paging": { "size": 10, "number": 1 },
+  "groupByColumns": [ { "columnName": "Country", "sortOrder": 0 } ]
+}
+
+###
+
+# 38. Two levels, Country -> Department, with the leaf rows projected down to
+#     three columns. The grouping columns survive the projection.
+POST {{baseUrl}}/api/inmemory/users/grouped-query
+Content-Type: application/json
+
+{
+  "selectColumns": [ "UserId", "FirstName", "Score" ],
+  "paging": { "size": 2, "number": 1 },
+  "sortColumns": [ { "columnName": "Score", "sortOrder": 1 } ],
+  "groupByColumns": [
+    { "columnName": "Country", "sortOrder": 0 },
+    { "columnName": "Department", "sortOrder": 0 }
+  ]
+}
+
+###
+
+# 39. Paging over groups — size 1 returns one country, and it still carries all
+#     ten of its users. Page size bounds groups, not the rows inside them.
+POST {{baseUrl}}/api/inmemory/users/grouped-query
+Content-Type: application/json
+
+{
+  "paging": { "size": 1, "number": 2 },
+  "groupByColumns": [ { "columnName": "Country", "sortOrder": 0 } ]
+}
+
+###
+
+# 40. Filter then group — active users by department.
+POST {{baseUrl}}/api/inmemory/users/grouped-query
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "IsActive", "operator": 0, "value": true }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 10, "number": 1 },
+  "groupByColumns": [ { "columnName": "Department", "sortOrder": 0 } ]
+}
+
+###
+
+# 41. Strict validation, no database needed — asks for the denied DeletedAt
+#     column. Expect 400 with a ValidationProblem naming it.
+POST {{baseUrl}}/api/inmemory/users/validated
+Content-Type: application/json
+
+{
+  "selectColumns": [ "UserId", "FirstName", "DeletedAt" ],
+  "paging": { "size": 10, "number": 1 }
+}
+
+###
+
+# 42. Same endpoint, oversized page — the cap is 50, so expect 400 again.
+POST {{baseUrl}}/api/inmemory/users/validated
+Content-Type: application/json
+
+{
+  "paging": { "size": 500, "number": 1 }
+}
+
+###
+
+# 43. Same endpoint, a request satisfying both rules — expect 200.
+POST {{baseUrl}}/api/inmemory/users/validated
+Content-Type: application/json
+
+{
+  "selectColumns": [ "UserId", "FirstName", "Country", "Score" ],
+  "paging": { "size": 25, "number": 1 },
+  "sortColumns": [ { "columnName": "Score", "sortOrder": 1 } ]
+}
+
+
+### ==========================================================================
+### The OpenAPI document (development environment only)
+### ==========================================================================
+
+# 44. The generated OpenAPI document — for Swagger UI, Scalar, Postman import,
+#     or frontend client generation.
+GET {{baseUrl}}/openapi/v1.json
+Accept: application/json

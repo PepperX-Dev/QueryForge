@@ -12,9 +12,21 @@
 
 **PepperX.QueryForge** is the abstract core of the QueryForge ecosystem: the shared vocabulary for describing *"filter this, sort it like that, page it, maybe group it"* — as a plain C# object or a plain JSON payload — without tying that intent to any particular database or library.
 
-It has **no execution logic**. It doesn't run SQL. It just defines the models, a fluent builder, and a validation engine that every provider (Dapper today, EF Core and In-Memory next) builds on top of.
+It defines the models, a fluent builder, and a validation engine that every provider builds on top of.
+It runs **no SQL** and has **no dependencies**.
 
-> To actually run a `Query` against a database, install a provider — e.g. [`PepperX.QueryForge.Dapper`](https://www.nuget.org/packages/PepperX.QueryForge.Dapper). It's included automatically as a dependency.
+It does, however, ship one execution engine — the in-memory one, since running a `Query` over an
+`IEnumerable<T>` needs nothing external:
+
+```csharp
+var result = products.ToQueryResult(query);   // same QueryResult<T> every provider returns
+```
+
+> To run a `Query` against a database, add a provider:
+> [`PepperX.QueryForge.Dapper`](https://www.nuget.org/packages/PepperX.QueryForge.Dapper) for
+> parameterized SQL over Dapper (SQL Server, PostgreSQL, MySQL/MariaDB, Oracle, SQLite), or
+> [`PepperX.QueryForge.EFCore`](https://www.nuget.org/packages/PepperX.QueryForge.EFCore) to have
+> Entity Framework Core generate the SQL from your model.
 
 ## At a glance
 

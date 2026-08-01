@@ -1,56 +1,38 @@
-﻿using PepperX.QueryForge.Dapper.Internals;
 using System.Data;
+using PepperX.QueryForge.Dapper.Internals;
 
 namespace PepperX.QueryForge.Dapper;
 
 /// <summary>
 /// The default implementation of <see cref="IDapperQueryService"/>.
 /// </summary>
-internal class DapperQueryService : IDapperQueryService
+internal sealed class DapperQueryService(DapperRegistry registry, IServiceProvider serviceProvider)
+    : IDapperQueryService
 {
-    private readonly DapperRegistry _registry;
-    private readonly IServiceProvider _serviceProvider;
-
-    public DapperQueryService(DapperRegistry registry, IServiceProvider serviceProvider)
-    {
-        _registry = registry;
-        _serviceProvider = serviceProvider;
-    }
-
-    public async Task<QueryResult<TModel>> QueryAsync<TModel>(
+    public Task<QueryResult<TModel>> QueryAsync<TModel>(
         IDbConnection connection,
         DapperQuery query,
         int? commandTimeout = null,
         IDbTransaction? transaction = null)
-    {
-        var provider = _registry.Resolve(connection);
-
-        return await provider.QueryAsync<TModel>(
-            connection,
-            query,
-            _registry.Options,
-            commandTimeout,
-            transaction: transaction);
-    }
+        => registry.Resolve(connection).QueryAsync<TModel>(connection, query, commandTimeout, transaction);
 
     public async Task<QueryResult<TModel>> QueryAsync<TModel>(
         DapperQuery query,
         int? commandTimeout = null,
         IDbTransaction? transaction = null)
     {
-        var options = _registry.Options;
-
-        if (options.ConnectionFactory == null)
+        if (registry.Options.ConnectionFactory is null)
         {
             throw new InvalidOperationException(
-                "Cannot auto-manage connections because DapperQueryForgeOptions.ConnectionFactory was not configured in AddQueryForgeDapper().");
+                "Cannot manage a connection because DapperQueryForgeOptions.ConnectionFactory was not configured " +
+                "in AddQueryForgeDapper(). Either configure it, or use the overload that takes an IDbConnection.");
         }
 
-        using var connection = options.ConnectionFactory(_serviceProvider);
+        using var connection = registry.Options.ConnectionFactory(serviceProvider);
 
         if (connection.State != ConnectionState.Open)
             connection.Open();
 
-        return await QueryAsync<TModel>(connection, query, commandTimeout, transaction: transaction);
+        return await QueryAsync<TModel>(connection, query, commandTimeout, transaction);
     }
 }

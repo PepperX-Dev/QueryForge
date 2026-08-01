@@ -1,15 +1,24 @@
-﻿namespace PepperX.QueryForge.Dapper;
+namespace PepperX.QueryForge.Dapper;
 
 /// <summary>
-/// Represents the SQL object metadata and parameters for a Dapper query.
+/// The SQL object a query targets, and any arguments it takes.
 /// </summary>
+/// <param name="Name">The table, view, table-valued function, or stored procedure name.</param>
+/// <param name="Schema">
+/// The schema. Left empty, each dialect supplies its own default — <c>dbo</c> on SQL Server,
+/// <c>public</c> on PostgreSQL, and none on MySQL or Oracle, which have no equivalent layer.
+/// </param>
+/// <param name="Type">
+/// The kind of object. <see cref="DapperObjectType.Auto"/> means a table or view; functions and
+/// procedures must say so, because they are invoked differently.
+/// </param>
+/// <param name="Parameters">
+/// Arguments for a function or procedure. Table-valued function arguments are positional and are
+/// passed in the order given here.
+/// </param>
 public record DapperQueryObject(
-    /// <summary>The name of the table, view, TVF, or stored procedure.</summary>
     string Name,
-    /// <summary>The database schema. Defaults to "dbo".</summary>
-    string Schema = "dbo",
-    /// <summary>The explicit type of the SQL object. Defaults to Auto.</summary>
+    string Schema = "",
     DapperObjectType Type = DapperObjectType.Auto,
-    /// <summary>Parameters to pass to the SQL object (e.g., SP parameters or TVF arguments).</summary>
     IReadOnlyDictionary<string, object?>? Parameters = null
 );

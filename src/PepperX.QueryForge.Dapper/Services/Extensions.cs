@@ -1,30 +1,24 @@
-﻿using System.Data;
+using System.Data;
 using PepperX.QueryForge.Dapper.Internals;
 
 namespace PepperX.QueryForge.Dapper;
 
 /// <summary>
-/// Extension methods for IDbConnection to execute QueryForge commands.
+/// Extension methods for running QueryForge queries straight off an <see cref="IDbConnection"/>.
 /// </summary>
 public static class DapperQueryForgeConnectionExtensions
 {
     /// <summary>
-    /// Executes a READ-ONLY QueryForge query and returns the strongly-typed result.
+    /// Executes a read-only QueryForge query and returns the strongly-typed result.
     /// </summary>
-    public static async Task<QueryResult<TModel>> QueryForgeAsync<TModel>(
+    /// <remarks>
+    /// Useful when you would rather not take a service dependency. It uses the dialects registered
+    /// by <c>AddQueryForgeDapper</c>, so that call still has to have happened at startup.
+    /// </remarks>
+    public static Task<QueryResult<TModel>> QueryForgeAsync<TModel>(
         this IDbConnection connection,
         DapperQuery query,
         int? commandTimeout = null,
         IDbTransaction? transaction = null)
-    {
-        var registry = DapperEngine.Registry;
-        var provider = registry.Resolve(connection);
-
-        return await provider.QueryAsync<TModel>(
-            connection,
-            query,
-            registry.Options,
-            commandTimeout,
-            transaction);
-    }
+        => DapperEngine.Registry.Resolve(connection).QueryAsync<TModel>(connection, query, commandTimeout, transaction);
 }

@@ -27,10 +27,38 @@ QueryForge is a modular query engine. It decouples the *intent* of a query from 
 
 | Package | Description | Status | NuGet |
 | :--- | :--- | :---: | :--- |
-| **[PepperX.QueryForge](./src/PepperX.QueryForge)** | The **abstract, provider-agnostic foundation** of QueryForge. It provides the core models (`Query`), fluent builders, and bulletproof validation engines required to construct dynamic, paginated, and hierarchically grouped queries. | ✅ Released | [![NuGet](https://img.shields.io/nuget/v/PepperX.QueryForge?style=flat-square&label=)](https://www.nuget.org/packages/PepperX.QueryForge) |
-| **[PepperX.QueryForge.Dapper](./src/PepperX.QueryForge.Dapper)** | High-performance execution provider for Dapper. Translates abstract query models into optimized SQL, seamlessly handling hierarchical grouping, complex filtering, and Stored Procedure/TVF integration. | ✅ Released | [![NuGet](https://img.shields.io/nuget/v/PepperX.QueryForge.Dapper?style=flat-square&label=)](https://www.nuget.org/packages/PepperX.QueryForge.Dapper) |
-| **PepperX.QueryForge.EFCore** | **Entity Framework Core** execution provider for QueryForge. | 🔧 Dev | *Coming Soon* |
-| **PepperX.QueryForge.InMemory** | In-memory execution provider designed for **IEnumerable** based types without database dependencies. | 📋 Planned | *Coming Soon* |
+| **[PepperX.QueryForge](./src/PepperX.QueryForge)** | The **provider-agnostic foundation**. Core models (`Query`), fluent builders, the validation engine, and a dependency-free **in-memory execution engine**. | ✅ Released | [![NuGet](https://img.shields.io/nuget/v/PepperX.QueryForge?style=flat-square&label=)](https://www.nuget.org/packages/PepperX.QueryForge) |
+| **[PepperX.QueryForge.Dapper](./src/PepperX.QueryForge.Dapper)** | Compiles query models into **parameterized SQL** and executes it with Dapper against **SQL Server, PostgreSQL, MySQL/MariaDB, Oracle and SQLite**. Nothing is deployed to your database. | ✅ Released | [![NuGet](https://img.shields.io/nuget/v/PepperX.QueryForge.Dapper?style=flat-square&label=)](https://www.nuget.org/packages/PepperX.QueryForge.Dapper) |
+| **[PepperX.QueryForge.EFCore](./src/PepperX.QueryForge.EFCore)** | **Entity Framework Core** provider. Translates query models into expression trees so EF Core generates the SQL — works on every database EF Core supports and honours your model. | ✅ Released | [![NuGet](https://img.shields.io/nuget/v/PepperX.QueryForge.EFCore?style=flat-square&label=)](https://www.nuget.org/packages/PepperX.QueryForge.EFCore) |
+| **[PepperX.QueryForge.InMemory](./src/PepperX.QueryForge.InMemory)** | **In-memory** provider for any `IEnumerable<T>` — cached data, composed API results, or as a test double for the database providers. Zero dependencies. | ✅ Released | [![NuGet](https://img.shields.io/nuget/v/PepperX.QueryForge.InMemory?style=flat-square&label=)](https://www.nuget.org/packages/PepperX.QueryForge.InMemory) |
+
+### Database engine support
+
+| Engine | Dapper provider | EF Core provider |
+| :--- | :---: | :---: |
+| Microsoft SQL Server | ✅ | ✅ |
+| PostgreSQL | ✅ | ✅ |
+| MySQL / MariaDB | ✅ | ✅ |
+| Oracle | ✅ | ✅ |
+| SQLite | ✅ | ✅ |
+| Anything else with an EF Core provider | — | ✅ |
+
+The EF Core column is ✅ throughout because EF Core generates the SQL; QueryForge only builds the
+expression tree.
+
+### One `Query`, the same answer everywhere
+
+Two shared suites run against **every provider** on every build: 90 tests taking each input apart
+(`Criteria`, `Paging`, `SelectColumns`, `SortColumns`, `GroupByColumns`, flat and grouped) and 35
+business scenarios posting whole requests — dashboards, drill-down grids, exports, search, and raw
+client JSON — against a seeded order book.
+
+Both the Dapper and EF Core providers run those suites against **real database servers** — SQLite,
+PostgreSQL, MySQL, SQL Server and Oracle — not just asserted SQL text. That is what surfaced the differences
+worth standardising: null ordering (engines disagree by default, and EF Core inherited the problem by
+deferring `ORDER BY` to the database) and loosely-typed filter values (`"30"` against an integer
+column, which strict engines reject outright). Both are handled, so the same request returns the same
+answer wherever it runs. See [tests/README.md](./tests/README.md).
 
 ---
 
@@ -38,8 +66,15 @@ QueryForge is a modular query engine. It decouples the *intent* of a query from 
 
 QueryForge is built around a core set of engineering principles:
 
-*   **🛡️ Security by Default:** Built-in validation engines (`SilentStrip` or `ThrowException`) prevent schema enumeration, data dumps, and malicious payloads.
-*   **🧩 Provider-Agnostic Core:** Define your query intent once using the abstract `Query` model, and execute it anywhere.
+*   **🛡️ Security by Default:** Column names are checked against what the target actually exposes and
+    anything unrecognised is dropped, so a filter payload cannot be used to probe your schema. Values
+    are always parameters, never inlined text. On top of that, the validation engine (`SilentStrip` or
+    `ThrowException`) gives you explicit allow/deny lists and page-size clamps.
+*   **🧩 Provider-Agnostic Core:** Define your query intent once using the abstract `Query` model, and
+    execute it anywhere. A cross-provider parity suite asserts that the same `Query` returns the same
+    `QueryResult<T>` from every provider.
+*   **🔌 Nothing to Deploy:** No stored procedures, no schema permissions, no startup migration step.
+    Every provider builds its query at call time.
 *   **🔄 Automated CI/CD:** All packages are built, tested, and published via GitHub Actions using OIDC Trusted Publishing.
 
 ---
