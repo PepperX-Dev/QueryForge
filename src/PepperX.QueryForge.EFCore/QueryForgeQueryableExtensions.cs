@@ -43,7 +43,10 @@ public static class QueryForgeQueryableExtensions
 
         foreach (var sort in query.SortColumns)
         {
-            var property = ExpressionCompiler.ResolveProperty<TModel>(sort.ColumnName);
+            // Orderable rather than merely present: a navigation property resolves like any other, but
+            // a collection one cannot be translated at all and a reference one orders by a surrogate
+            // key nobody asked for.
+            var property = ExpressionCompiler.ResolveOrderableProperty<TModel>(sort.ColumnName);
 
             if (property is null)
                 continue;
@@ -113,9 +116,56 @@ public static class QueryForgeQueryableExtensions
         if (query.SelectColumns.Count == 0)
             return source;
 
+        // EF Core drops every Include from a query whose final shape is a constructed instance rather
+        // than the tracked entity. Projecting here would therefore return rows whose navigations are
+        // empty — a silent loss of the data the caller explicitly asked to load, with nothing in the
+        // response to show for it. The projection is the input that cannot be honoured, so it is the
+        // one that gets dropped, which is the rule the rest of QueryForge follows.
+        if (HasIncludes(source.Expression))
+            return source;
+
         var selector = ExpressionCompiler.BuildProjection<TModel>(query.SelectColumns, alsoKeep);
 
         return selector is null ? source : source.Select(selector);
+    }
+
+    /// <summary>
+    /// Whether an <c>Include</c> or <c>ThenInclude</c> already appears in the query.
+    /// </summary>
+    /// <remarks>
+    /// Walks the source chain rather than the whole tree: the operators are composed left to right,
+    /// so an include is always reachable through the first argument of each call — including through
+    /// the <c>AsNoTracking</c> and <c>AsSplitQuery</c> that usually follow it.
+    /// </remarks>
+    private static bool HasIncludes(Expression expression)
+    {
+        while (expression is MethodCallExpression call)
+        {
+            // A projection the caller wrote themselves has already cost them the includes, so anything
+            // further down is moot and QueryForge's own projection is free to apply. Without this, a
+            // query that includes and then selects into a DTO would have SelectColumns quietly ignored
+            // for no benefit.
+            if (call.Method.DeclaringType == typeof(Queryable)
+                && call.Method.Name == nameof(Queryable.Select))
+            {
+                return false;
+            }
+
+            // Matched by name because ThenInclude is declared against IIncludableQueryable, so the
+            // two do not share a single closed generic definition to compare against.
+            if (call.Method.DeclaringType == typeof(EntityFrameworkQueryableExtensions)
+                && call.Method.Name is "Include" or "ThenInclude")
+            {
+                return true;
+            }
+
+            if (call.Arguments.Count == 0)
+                break;
+
+            expression = call.Arguments[0];
+        }
+
+        return false;
     }
 
     /// <summary>Applies filtering, sorting and paging, leaving the query unexecuted.</summary>
@@ -139,8 +189,10 @@ public static class QueryForgeQueryableExtensions
 
         var filtered = source.ApplyFilter(query);
 
+        // A grouping level has to be orderable, not merely present: its keys are ordered and paged
+        // in the database, which a navigation property cannot be.
         var grouping = query.GroupByColumns
-            .FirstOrDefault(g => ExpressionCompiler.ResolveProperty<TModel>(g.ColumnName) is not null);
+            .FirstOrDefault(g => ExpressionCompiler.ResolveOrderableProperty<TModel>(g.ColumnName) is not null);
 
         return grouping is null
             ? await FlatAsync(filtered, query, cancellationToken)
@@ -179,7 +231,7 @@ public static class QueryForgeQueryableExtensions
         GroupByDescriptor grouping,
         CancellationToken cancellationToken)
     {
-        var property = ExpressionCompiler.ResolveProperty<TModel>(grouping.ColumnName)!;
+        var property = ExpressionCompiler.ResolveOrderableProperty<TModel>(grouping.ColumnName)!;
 
         // The key type is only known at run time, so the typed implementation is reached reflectively.
         var method = typeof(QueryForgeQueryableExtensions)
@@ -247,7 +299,7 @@ public static class QueryForgeQueryableExtensions
             selector.Body);
 
         var groups = query.GroupByColumns
-            .Where(g => ExpressionCompiler.ResolveProperty<TModel>(g.ColumnName) is not null)
+            .Where(g => ExpressionCompiler.ResolveOrderableProperty<TModel>(g.ColumnName) is not null)
             .ToList();
 
         // Grouping columns survive the projection: the hierarchy is rebuilt from them after the rows

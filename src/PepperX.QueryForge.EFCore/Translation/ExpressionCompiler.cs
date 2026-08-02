@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Linq.Expressions;
@@ -96,6 +97,72 @@ public static class ExpressionCompiler
         }
 
         return combined is null ? null : Expression.Lambda<Func<TModel, bool>>(combined, parameter);
+    }
+
+    /// <summary>
+    /// Resolves a column that is valid to ORDER BY or GROUP BY — a single value rather than a related
+    /// entity or a collection of them.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ResolveProperty{TModel}"/> answers "is this a property of the entity", which is the
+    /// right question for a filter and the wrong one for an ordering. A navigation property is a
+    /// property, so it resolves — and a caller supplies the column name as a string, so both kinds of
+    /// navigation are reachable from a request body. Each fails differently:
+    /// <list type="bullet">
+    /// <item>
+    /// A <em>collection</em> navigation cannot be translated at all. <c>OrderBy(c =&gt; c.Orders)</c>
+    /// throws <see cref="InvalidOperationException"/>, so the request crashes rather than being
+    /// ignored.
+    /// </item>
+    /// <item>
+    /// A <em>reference</em> navigation does translate — EF Core orders by the related key — which is
+    /// worse in the grouping case than a failure would be. The group key becomes the whole related
+    /// entity, so it serializes into <c>HierarchyNode.Key</c> carrying every column of that entity,
+    /// including ones the caller was never offered. Ordering by a surrogate key is also not what
+    /// anyone naming "Customer" meant; they wanted a column on it.
+    /// </item>
+    /// </list>
+    /// Both are therefore dropped, exactly as an unknown column is.
+    /// <para>
+    /// Filtering is deliberately left alone: a value that cannot be converted to an entity type
+    /// already fails to bind and drops the condition, and <c>Equals</c> against null is a meaningful,
+    /// translatable test for whether a related row exists.
+    /// </para>
+    /// </remarks>
+    public static PropertyInfo? ResolveOrderableProperty<TModel>(string? columnName)
+    {
+        var property = ResolveProperty<TModel>(columnName);
+
+        return property is not null && IsOrderable(property.PropertyType) ? property : null;
+    }
+
+    /// <summary>
+    /// Whether a value of this type can appear in ORDER BY or GROUP BY.
+    /// </summary>
+    /// <remarks>
+    /// Decided from the CLR type alone, because this runs without access to the EF model. The test is
+    /// deliberately generous: everything a database can order by satisfies it, including the
+    /// value-converted structs used for strongly-typed ids, while entity references and collection
+    /// navigations do not.
+    /// </remarks>
+    private static bool IsOrderable(Type type)
+    {
+        var underlying = Nullable.GetUnderlyingType(type) ?? type;
+
+        // Both are sequences, and neither is a navigation.
+        if (underlying == typeof(string) || underlying == typeof(byte[]))
+            return true;
+
+        if (underlying.IsPrimitive || underlying.IsEnum)
+            return true;
+
+        // A collection navigation.
+        if (typeof(IEnumerable).IsAssignableFrom(underlying))
+            return false;
+
+        // decimal, DateTime, DateTimeOffset, DateOnly, TimeOnly, TimeSpan and Guid all qualify here.
+        // An entity type does not, which is the distinction being drawn.
+        return typeof(IComparable).IsAssignableFrom(underlying);
     }
 
     /// <summary>Builds a key selector for a grouping or sorting column.</summary>
