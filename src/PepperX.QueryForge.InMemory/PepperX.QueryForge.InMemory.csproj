@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
 
     <PackageId>PepperX.QueryForge.InMemory</PackageId>
-    <Version>2.0.0</Version>
+    <Version>2.1.0</Version>
     <Authors>Amir Hossein Morady Pour</Authors>
     <Description>In-memory execution provider for PepperX.QueryForge. Runs the same dynamic filtering, sorting, paging and hierarchical grouping against any IEnumerable or IQueryable — no database, no dependencies. Ideal for cached collections, API composition, unit tests, and as the reference implementation the database providers are asserted against.</Description>
     <PackageTags>in-memory;linq;ienumerable;iqueryable;dynamic-query;query-builder;pagination;hierarchical-grouping;csharp;dotnet;filtering;sorting;testing</PackageTags>

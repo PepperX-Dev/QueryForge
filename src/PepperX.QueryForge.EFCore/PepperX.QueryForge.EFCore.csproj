@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
 
     <PackageId>PepperX.QueryForge.EFCore</PackageId>
-    <Version>2.0.0</Version>
+    <Version>2.1.0</Version>
     <Authors>Amir Hossein Morady Pour</Authors>
     <Description>Entity Framework Core execution provider for PepperX.QueryForge. Translates abstract query models into expression trees so EF Core generates the SQL, which means dynamic filtering, sorting, paging and hierarchical grouping work on every database EF Core supports and respect your entity model, global query filters and value converters.</Description>
     <PackageTags>entity-framework-core;efcore;linq;iqueryable;expression-trees;dynamic-query;query-builder;pagination;hierarchical-grouping;csharp;dotnet;filtering;sorting</PackageTags>
