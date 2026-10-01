@@ -24,7 +24,8 @@
 ###                     4=StartsWith          5=EndsWith
 ###                     6=LessThan            7=GreaterThan
 ###                     8=LessThanOrEqualTo   9=GreaterThanOrEqualTo
-###                     10=Between
+###                     10=Between            11=IsNull
+###                     12=IsNotNull
 ###
 ### --------------------------------------------------------------------------
 ### The five things a Query can carry
@@ -182,6 +183,48 @@ Content-Type: application/json
         "logic": 0,
         "conditions": [
           { "columnName": "DeletedAt", "operator": 1, "value": null }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 20, "number": 1 }
+}
+
+###
+
+# 8a. IS NULL using ConditionOperator.IsNull (11) — explicit unary null check.
+POST {{baseUrl}}/api/users/filters/null-checks
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "DeletedAt", "operator": 11 }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 20, "number": 1 }
+}
+
+###
+
+# 9a. IS NOT NULL using ConditionOperator.IsNotNull (12) — explicit unary non-null check.
+POST {{baseUrl}}/api/users/filters/null-checks
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "DeletedAt", "operator": 12 }
         ]
       }
     ]
@@ -694,6 +737,48 @@ Content-Type: application/json
         "logic": 0,
         "conditions": [
           { "columnName": "DeletedAt", "operator": 1, "value": null }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 20, "number": 1 }
+}
+
+###
+
+# 35a. Active users using IsNull (DeletedAt IS NULL) — operator 11, expects 37 users.
+POST {{baseUrl}}/api/inmemory/users/query
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "DeletedAt", "operator": 11 }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 50, "number": 1 }
+}
+
+###
+
+# 35b. Soft-deleted users using IsNotNull (DeletedAt IS NOT NULL) — operator 12, expects UserId 11, 22, 33.
+POST {{baseUrl}}/api/inmemory/users/query
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "DeletedAt", "operator": 12 }
         ]
       }
     ]

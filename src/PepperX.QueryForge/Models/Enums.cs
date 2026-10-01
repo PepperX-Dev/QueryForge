@@ -1,4 +1,4 @@
-﻿namespace PepperX.QueryForge;
+namespace PepperX.QueryForge;
 
 /// <summary>Defines the logical operators used to combine conditions or groups.</summary>
 public enum Logic { And, Or, AndNot, OrNot }
@@ -11,7 +11,8 @@ public enum ConditionOperator
 {
     Equals, NotEquals, Contains, NotContains,
     StartsWith, EndsWith, LessThan, GreaterThan,
-    LessThanOrEqualTo, GreaterThanOrEqualTo, Between
+    LessThanOrEqualTo, GreaterThanOrEqualTo, Between,
+    IsNull, IsNotNull
 }
 
 /// <summary>Defines the structural shape of the query result returned by the execution provider.</summary>

@@ -50,6 +50,9 @@ public static class ConditionSemantics
         if (!Enum.IsDefined(condition.Operator))
             return false;
 
+        if (condition.Operator is ConditionOperator.IsNull or ConditionOperator.IsNotNull)
+            return true;
+
         var value = Unwrap(condition.Value);
 
         if (condition.Operator is ConditionOperator.Equals or ConditionOperator.NotEquals)
@@ -63,6 +66,11 @@ public static class ConditionSemantics
 
         return true;
     }
+
+    /// <summary>Whether the operator is unary (requires no comparison value, e.g. IS NULL, IS NOT NULL).</summary>
+    public static bool IsUnaryOperator(ConditionOperator op) => op
+        is ConditionOperator.IsNull
+        or ConditionOperator.IsNotNull;
 
     /// <summary>Whether the operator performs a text match and therefore needs LIKE escaping.</summary>
     public static bool IsPatternOperator(ConditionOperator op) => op

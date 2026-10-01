@@ -589,6 +589,104 @@ public abstract class QueryForgeConformanceTests
         ids.Should().Equal(1, 2, 3, 4, 5, 8, 9, 10, 11, 12);
     }
 
+    [SkippableFact]
+    public async Task Criteria_IsNull_ShouldMatchOnlyNullValues()
+    {
+        var ids = await IdsAsync(new Query
+        {
+            Criteria = Group(new Condition("Category", ConditionOperator.IsNull)),
+            SortColumns = [new SortDescriptor("Id")],
+            Paging = AllRows
+        });
+
+        ids.Should().Equal(6, 7);
+    }
+
+    [SkippableFact]
+    public async Task Criteria_IsNotNull_ShouldMatchOnlyNonNullValues()
+    {
+        var ids = await IdsAsync(new Query
+        {
+            Criteria = Group(new Condition("Category", ConditionOperator.IsNotNull)),
+            SortColumns = [new SortDescriptor("Id")],
+            Paging = AllRows
+        });
+
+        ids.Should().Equal(1, 2, 3, 4, 5, 8, 9, 10, 11, 12);
+    }
+
+    [SkippableFact]
+    public async Task Criteria_IsNull_InNegatedGroup_ShouldInvertToIsNotNull()
+    {
+        var ids = await IdsAsync(new Query
+        {
+            Criteria = new QueryCriteria
+            {
+                Groups =
+                [
+                    new ConditionGroup
+                    {
+                        Logic = Logic.AndNot,
+                        Conditions = [new Condition("Category", ConditionOperator.IsNull)]
+                    }
+                ]
+            },
+            SortColumns = [new SortDescriptor("Id")],
+            Paging = AllRows
+        });
+
+        ids.Should().Equal(1, 2, 3, 4, 5, 8, 9, 10, 11, 12);
+    }
+
+    [SkippableFact]
+    public async Task Criteria_IsNotNull_InNegatedGroup_ShouldInvertToIsNull()
+    {
+        var ids = await IdsAsync(new Query
+        {
+            Criteria = new QueryCriteria
+            {
+                Groups =
+                [
+                    new ConditionGroup
+                    {
+                        Logic = Logic.AndNot,
+                        Conditions = [new Condition("Category", ConditionOperator.IsNotNull)]
+                    }
+                ]
+            },
+            SortColumns = [new SortDescriptor("Id")],
+            Paging = AllRows
+        });
+
+        ids.Should().Equal(6, 7);
+    }
+
+    [SkippableFact]
+    public async Task Criteria_IsNull_OnNonNullableColumn_ShouldMatchNothing()
+    {
+        var ids = await IdsAsync(new Query
+        {
+            Criteria = Group(new Condition("Id", ConditionOperator.IsNull)),
+            SortColumns = [new SortDescriptor("Id")],
+            Paging = AllRows
+        });
+
+        ids.Should().BeEmpty();
+    }
+
+    [SkippableFact]
+    public async Task Criteria_IsNotNull_OnNonNullableColumn_ShouldMatchAllRows()
+    {
+        var ids = await IdsAsync(new Query
+        {
+            Criteria = Group(new Condition("Id", ConditionOperator.IsNotNull)),
+            SortColumns = [new SortDescriptor("Id")],
+            Paging = AllRows
+        });
+
+        ids.Should().Equal(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
+    }
+
     [SkippableTheory]
     [InlineData(ConditionOperator.GreaterThan)]
     [InlineData(ConditionOperator.LessThan)]

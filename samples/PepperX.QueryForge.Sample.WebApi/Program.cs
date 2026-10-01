@@ -146,7 +146,7 @@ namespace PepperX.QueryForge.Sample.WebApi
             })
             .WithName("NullChecks")
             .WithSummary("IS NULL and IS NOT NULL checks.")
-            .WithDescription("Pass `value: null` with Operator 0 (Equals) to generate `IS NULL`. Use Operator 1 (NotEquals) for `IS NOT NULL`.")
+            .WithDescription("Use Operator 11 (IsNull) for `IS NULL`, or Operator 12 (IsNotNull) for `IS NOT NULL`. Alternatively, pass `value: null` with Operator 0 (Equals) or 1 (NotEquals).")
             .Accepts<Query>("application/json").Produces<QueryResult<TestUser>>();
 
             filterApi.MapPost("/range", async (Query q, IDapperQueryService svc) =>

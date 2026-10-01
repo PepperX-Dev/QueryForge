@@ -303,6 +303,16 @@ public static class ExpressionCompiler
 
         switch (condition.Operator)
         {
+            case ConditionOperator.IsNull:
+                return IsNullable(targetType)
+                    ? Expression.Equal(member, Expression.Constant(null, targetType))
+                    : Expression.Constant(false);
+
+            case ConditionOperator.IsNotNull:
+                return IsNullable(targetType)
+                    ? Expression.NotEqual(member, Expression.Constant(null, targetType))
+                    : Expression.Constant(true);
+
             case ConditionOperator.Equals when raw is null:
                 return IsNullable(targetType)
                     ? Expression.Equal(member, Expression.Constant(null, targetType))
@@ -375,12 +385,16 @@ public static class ExpressionCompiler
         var raw = ConditionSemantics.Unwrap(condition.Value);
 
         // IS NULL and IS NOT NULL are definite even when the value is null, so they simply invert.
-        if (raw is null && condition.Operator is ConditionOperator.Equals or ConditionOperator.NotEquals)
+        if (condition.Operator is ConditionOperator.IsNull or ConditionOperator.IsNotNull
+            || (raw is null && condition.Operator is ConditionOperator.Equals or ConditionOperator.NotEquals))
         {
-            if (!IsNullable(targetType))
-                return Expression.Constant(condition.Operator is ConditionOperator.Equals);
+            var isNullTest = condition.Operator is ConditionOperator.IsNull
+                || (condition.Operator is ConditionOperator.Equals && raw is null);
 
-            return condition.Operator is ConditionOperator.Equals
+            if (!IsNullable(targetType))
+                return Expression.Constant(isNullTest);
+
+            return isNullTest
                 ? Expression.NotEqual(member, Expression.Constant(null, targetType))
                 : Expression.Equal(member, Expression.Constant(null, targetType));
         }

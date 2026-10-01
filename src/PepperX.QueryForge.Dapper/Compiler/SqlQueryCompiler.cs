@@ -331,6 +331,12 @@ public sealed class SqlQueryCompiler(ISqlDialect dialect)
 
         switch (condition.Operator)
         {
+            case ConditionOperator.IsNull:
+                return $"{column} IS NULL";
+
+            case ConditionOperator.IsNotNull:
+                return $"{column} IS NOT NULL";
+
             case ConditionOperator.Equals:
                 return value is null ? $"{column} IS NULL" : $"{column} = {context.AddValue(value)}";
 

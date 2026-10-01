@@ -206,6 +206,12 @@ public static class InMemoryQueryEngine
 
         switch (condition.Operator)
         {
+            case ConditionOperator.IsNull:
+                return actual is null;
+
+            case ConditionOperator.IsNotNull:
+                return actual is not null;
+
             case ConditionOperator.Equals when expected is null:
                 return actual is null;
 
