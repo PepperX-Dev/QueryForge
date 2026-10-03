@@ -24,7 +24,8 @@
 ###                     4=StartsWith          5=EndsWith
 ###                     6=LessThan            7=GreaterThan
 ###                     8=LessThanOrEqualTo   9=GreaterThanOrEqualTo
-###                     10=Between
+###                     10=Between            11=In
+###                     12=NotIn
 ###
 ### --------------------------------------------------------------------------
 ### The five things a Query can carry
@@ -306,6 +307,52 @@ Content-Type: application/json
     ]
   },
   "paging": { "size": 5, "number": 1 }
+}
+
+###
+
+# 14b. IN operator — matches any of the given countries: Germany or Japan.
+#      Operator 11 (In). Pass candidates as a JSON array in value.
+POST {{baseUrl}}/api/users/filters/membership
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "Country", "operator": 11, "value": [ "Germany", "Japan" ] }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 20, "number": 1 },
+  "sortColumns": [ { "columnName": "UserId", "sortOrder": 0 } ]
+}
+
+###
+
+# 14c. NOT IN operator — excludes departments HR and IT.
+#      Operator 12 (NotIn). Pass candidates as a JSON array in value.
+POST {{baseUrl}}/api/users/filters/membership
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "Department", "operator": 12, "value": [ "HR", "IT" ] }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 20, "number": 1 },
+  "sortColumns": [ { "columnName": "UserId", "sortOrder": 0 } ]
 }
 
 
@@ -699,6 +746,52 @@ Content-Type: application/json
     ]
   },
   "paging": { "size": 20, "number": 1 }
+}
+
+###
+
+# 35b. IN operator (In-Memory) — users from Germany or Iran.
+#      Operator 11 (In) with an array of candidates. No database required!
+POST {{baseUrl}}/api/inmemory/users/query
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "Country", "operator": 11, "value": [ "Germany", "Iran" ] }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 20, "number": 1 },
+  "sortColumns": [ { "columnName": "UserId", "sortOrder": 0 } ]
+}
+
+###
+
+# 35c. NOT IN operator (In-Memory) — exclude HR and IT departments.
+#      Operator 12 (NotIn) with an array of candidates.
+POST {{baseUrl}}/api/inmemory/users/query
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "Department", "operator": 12, "value": [ "HR", "IT" ] }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 20, "number": 1 },
+  "sortColumns": [ { "columnName": "UserId", "sortOrder": 0 } ]
 }
 
 ###

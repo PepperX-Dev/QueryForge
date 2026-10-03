@@ -561,6 +561,128 @@ public abstract class QueryForgeConformanceTests
 
     #endregion
 
+    #region Criteria — membership operators
+
+    [SkippableTheory]
+    [InlineData(ConditionOperator.In, new[] { 4, 6, 10, 11 })]
+    [InlineData(ConditionOperator.NotIn, new[] { 1, 2, 3, 5, 7, 8, 9, 12 })]
+    public async Task Criteria_In_ShouldMatchAnyOfTheGivenValues(
+        ConditionOperator op, int[] expected)
+    {
+        var ids = await IdsAsync(new Query
+        {
+            Criteria = Group(new Condition("Id", op, new[] { 4, 6, 10, 11 })),
+            Paging = AllRows
+        });
+
+        ids.Should().Equal(expected);
+    }
+
+    [SkippableFact]
+    public async Task Criteria_In_ShouldAcceptValuesAsStringsAndCompareNumerically()
+    {
+        var ids = await IdsAsync(new Query
+        {
+            Criteria = Group(new Condition("Id", ConditionOperator.In, new[] { "4", "6", "10", "11" })),
+            Paging = AllRows
+        });
+
+        ids.Should().Equal(4, 6, 10, 11);
+    }
+
+    [SkippableFact]
+    public async Task Criteria_In_OnAStringColumn_ShouldMatch()
+    {
+        var ids = await IdsAsync(new Query
+        {
+            Criteria = Group(new Condition("Category", ConditionOperator.In, new[] { "Tools", "Promo" })),
+            SortColumns = [new SortDescriptor("Id")],
+            Paging = AllRows
+        });
+
+        ids.Should().Equal(1, 3, 4, 8, 9, 11, 12);
+    }
+
+    [SkippableFact]
+    public async Task Criteria_In_WithAnEmptyList_ShouldNotMatchAnything()
+    {
+        var result = await RunAsync(new Query
+        {
+            Criteria = Group(new Condition("Id", ConditionOperator.In, Array.Empty<int>())),
+            Paging = AllRows
+        });
+
+        result.Meta.Total.Rows.Should().Be(0);
+    }
+
+    [SkippableFact]
+    public async Task Criteria_In_WithNullItem_ShouldStillMatchTheNonNullOnes()
+    {
+        var ids = await IdsAsync(new Query
+        {
+            Criteria = Group(new Condition("Id", ConditionOperator.In, new object?[] { 4, null, 11 })),
+            Paging = AllRows
+        });
+
+        // The null item is ignored — only 4 and 11 match.
+        ids.Should().Equal(4, 11);
+    }
+
+    [SkippableFact]
+    public async Task Criteria_NotIn_ShouldExcludeAllOfTheGivenValues()
+    {
+        var ids = await IdsAsync(new Query
+        {
+            Criteria = Group(new Condition("Id", ConditionOperator.NotIn, new[] { 1, 2, 3 })),
+            Paging = AllRows
+        });
+
+        ids.Should().Equal(4, 5, 6, 7, 8, 9, 10, 11, 12);
+    }
+
+    [SkippableFact]
+    public async Task Criteria_NotIn_WithAnEmptyList_ShouldMatchEverything()
+    {
+        var result = await RunAsync(new Query
+        {
+            Criteria = Group(new Condition("Id", ConditionOperator.NotIn, Array.Empty<int>())),
+            Paging = AllRows
+        });
+
+        result.Meta.Total.Rows.Should().Be(12);
+    }
+
+    [SkippableFact]
+    public async Task Criteria_In_ShouldTreatNullColumnAsNotMatching()
+    {
+        var ids = await IdsAsync(new Query
+        {
+            Criteria = Group(new Condition("Category", ConditionOperator.In, new[] { "Parts" })),
+            Paging = AllRows
+        });
+
+        // Null category rows (6, 7) must not match even though they aren't in the set.
+        ids.Should().Equal(2, 5, 10);
+        ids.Should().NotContain(6);
+        ids.Should().NotContain(7);
+    }
+
+    [SkippableFact]
+    public async Task Criteria_In_ShouldWorkWithMixedTypeValues()
+    {
+        // A client sending a mix of int and string candidates for a numeric column.
+        var ids = await IdsAsync(new Query
+        {
+            Criteria = Group(new Condition("Quantity", ConditionOperator.In, new object?[] { 5, "9", 12 })),
+            SortColumns = [new SortDescriptor("Id")],
+            Paging = AllRows
+        });
+
+        ids.Should().Equal(1, 9, 10);
+    }
+
+    #endregion
+
     #region Criteria — nulls and unusable conditions
 
     [SkippableFact]

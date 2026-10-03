@@ -169,6 +169,16 @@ namespace PepperX.QueryForge.Sample.WebApi
             .WithDescription("Logic Enums: 0=And, 1=Or, 2=AndNot, 3=OrNot.")
             .Accepts<Query>("application/json").Produces<QueryResult<TestUser>>();
 
+            filterApi.MapPost("/membership", async (Query q, IDapperQueryService svc) =>
+            {
+                var dq = DapperQueryBuilder.FromBase(q).ForObject("TestUsers", "dbo", DapperObjectType.Table).Build();
+                return await svc.QueryAsync<TestUser>(dq);
+            })
+            .WithName("MembershipFiltering")
+            .WithSummary("In and NotIn operators for set membership.")
+            .WithDescription("Operator 11=In, 12=NotIn. Matches or excludes a set of candidate values.")
+            .Accepts<Query>("application/json").Produces<QueryResult<TestUser>>();
+
             // ==========================================
             // GROUP 3: SECURITY & VALIDATION
             // ==========================================

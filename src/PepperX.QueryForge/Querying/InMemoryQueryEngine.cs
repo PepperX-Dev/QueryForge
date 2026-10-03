@@ -257,6 +257,46 @@ public static class InMemoryQueryEngine
                 return QueryValueComparer.Instance.Compare(actual, expected) >= 0
                     && QueryValueComparer.Instance.Compare(actual, upper) <= 0;
 
+            case ConditionOperator.In:
+                if (expected is not System.Collections.IEnumerable enumerable)
+                    return null;
+
+                // Empty enumerable: IN [] matches nothing
+                bool foundIn = false;
+                foreach (var candidate in enumerable)
+                {
+                    var unwrappedCandidate = ConditionSemantics.Unwrap(candidate);
+                    if (unwrappedCandidate is null)
+                        continue;
+
+                    if (QueryValueComparer.Instance.AreEqual(actual, unwrappedCandidate))
+                    {
+                        foundIn = true;
+                        break;
+                    }
+                }
+                return foundIn;
+
+            case ConditionOperator.NotIn:
+                if (expected is not System.Collections.IEnumerable notInEnumerable)
+                    return null;
+
+                // Empty enumerable: NOT IN [] matches everything
+                bool foundInNot = false;
+                foreach (var candidate in notInEnumerable)
+                {
+                    var unwrappedCandidate = ConditionSemantics.Unwrap(candidate);
+                    if (unwrappedCandidate is null)
+                        continue;
+
+                    if (QueryValueComparer.Instance.AreEqual(actual, unwrappedCandidate))
+                    {
+                        foundInNot = true;
+                        break;
+                    }
+                }
+                return !foundInNot;
+
             default:
                 return null;
         }

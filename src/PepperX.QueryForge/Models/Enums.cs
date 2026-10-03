@@ -11,7 +11,8 @@ public enum ConditionOperator
 {
     Equals, NotEquals, Contains, NotContains,
     StartsWith, EndsWith, LessThan, GreaterThan,
-    LessThanOrEqualTo, GreaterThanOrEqualTo, Between
+    LessThanOrEqualTo, GreaterThanOrEqualTo, Between,
+    In, NotIn
 }
 
 /// <summary>Defines the structural shape of the query result returned by the execution provider.</summary>
