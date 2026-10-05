@@ -12,4 +12,10 @@ public class DapperQueryForgeOptions
     /// connection. Not required when every call supplies its own <see cref="IDbConnection"/>.
     /// </summary>
     public Func<IServiceProvider, IDbConnection>? ConnectionFactory { get; set; }
+
+    /// <summary>
+    /// The query cache instance used for storing query results.
+    /// If null, <see cref="PepperX.QueryForge.Caching.QueryForgeCache.Default"/> is used.
+    /// </summary>
+    public PepperX.QueryForge.Caching.IQueryCache? Cache { get; set; }
 }

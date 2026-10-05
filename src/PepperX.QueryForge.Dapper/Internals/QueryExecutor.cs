@@ -1,5 +1,6 @@
 using System.Data;
 using Dapper;
+using PepperX.QueryForge.Caching;
 using PepperX.QueryForge.Dapper.Compiler;
 using PepperX.QueryForge.Querying;
 
@@ -13,7 +14,7 @@ namespace PepperX.QueryForge.Dapper.Internals;
 /// three, because paging applies to the outermost grouping level rather than to rows — the counts
 /// and the key page describe groups, and only then are the rows for those groups fetched.
 /// </remarks>
-internal sealed class QueryExecutor(SqlQueryCompiler compiler, SchemaCache schemaCache)
+internal sealed class QueryExecutor(SqlQueryCompiler compiler, SchemaCache schemaCache, DapperQueryForgeOptions? options = null)
 {
     public async Task<QueryResult<TModel>> QueryAsync<TModel>(
         IDbConnection connection,
@@ -24,6 +25,34 @@ internal sealed class QueryExecutor(SqlQueryCompiler compiler, SchemaCache schem
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(query);
 
+        var cache = options?.Cache ?? QueryForgeCache.Default;
+        var cacheOptions = query.Cache;
+
+        if (cacheOptions is { Enabled: true })
+        {
+            var cacheKey = QueryCacheKeyGenerator.GenerateKey<TModel>(
+                query,
+                targetSource: query.Object?.Name,
+                customPrefix: "dapper");
+
+            var cached = await cache.GetAsync<TModel>(cacheKey);
+            if (cached is not null)
+                return cached;
+
+            var executed = await ExecuteCoreAsync<TModel>(connection, query, commandTimeout, transaction);
+            await cache.SetAsync(cacheKey, executed, cacheOptions);
+            return executed;
+        }
+
+        return await ExecuteCoreAsync<TModel>(connection, query, commandTimeout, transaction);
+    }
+
+    private async Task<QueryResult<TModel>> ExecuteCoreAsync<TModel>(
+        IDbConnection connection,
+        DapperQuery query,
+        int? commandTimeout,
+        IDbTransaction? transaction)
+    {
         if (query.Object?.Type == DapperObjectType.SP)
             return await QueryStoredProcedureAsync<TModel>(connection, query, commandTimeout, transaction);
 

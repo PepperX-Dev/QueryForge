@@ -23,7 +23,7 @@ internal sealed class DapperRegistry(DapperQueryForgeOptions options)
         ArgumentNullException.ThrowIfNull(dialect);
 
         var compiler = new SqlQueryCompiler(dialect);
-        _executors[dialect.ProviderType] = new QueryExecutor(compiler, new SchemaCache(compiler));
+        _executors[dialect.ProviderType] = new QueryExecutor(compiler, new SchemaCache(compiler), Options);
     }
 
     /// <summary>Resolves the executor for an explicitly named engine.</summary>

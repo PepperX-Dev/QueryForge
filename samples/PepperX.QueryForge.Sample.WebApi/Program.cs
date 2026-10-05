@@ -1,5 +1,6 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using PepperX.QueryForge.Caching;
 using PepperX.QueryForge.Dapper;
 using PepperX.QueryForge.EFCore;
 using PepperX.QueryForge.InMemory;
@@ -122,6 +123,19 @@ namespace PepperX.QueryForge.Sample.WebApi
             })
             .WithName("DeepPagination")
             .WithSummary("Fetch page 5 of a large dataset.")
+            .Accepts<Query>("application/json").Produces<QueryResult<TestUser>>();
+
+            coreApi.MapPost("/cached", async (Query q, IDapperQueryService svc) =>
+            {
+                var dq = DapperQueryBuilder.FromBase(q)
+                    .ForObject("TestUsers", "dbo", DapperObjectType.Table)
+                    .WithCache(q.Cache?.Expiration ?? TimeSpan.FromMinutes(2), tags: ["users"])
+                    .Build();
+                return await svc.QueryAsync<TestUser>(dq);
+            })
+            .WithName("DapperCachedQuery")
+            .WithSummary("Cached query via Dapper (returns immediately from memory on repeat calls).")
+            .WithDescription("Results are cached using QueryForge second-level memory cache to avoid repeat SQL queries.")
             .Accepts<Query>("application/json").Produces<QueryResult<TestUser>>();
 
             // ==========================================
@@ -319,6 +333,16 @@ namespace PepperX.QueryForge.Sample.WebApi
             .WithDescription("Useful for seeing that values become parameters rather than inlined literals.")
             .Accepts<Query>("application/json").Produces<string>();
 
+            efApi.MapPost("/cached", async (Query q, SampleDbContext db) =>
+            {
+                q.WithCache(q.Cache?.Expiration ?? TimeSpan.FromMinutes(2), tags: ["users"]);
+                return await db.Users.AsNoTracking().ToQueryResultAsync<TestUser>(q);
+            })
+            .WithName("EfCoreCachedQuery")
+            .WithSummary("Cached query via EF Core (returns from memory cache on repeat executions).")
+            .WithDescription("Uses QueryForge second-level memory cache to avoid repeat SQL queries.")
+            .Accepts<Query>("application/json").Produces<QueryResult<TestUser>>();
+
             // ==========================================
             // GROUP 7: IN-MEMORY PROVIDER
             // ==========================================
@@ -362,6 +386,27 @@ namespace PepperX.QueryForge.Sample.WebApi
             .Accepts<Query>("application/json")
             .Produces<QueryResult<TestUser>>(StatusCodes.Status200OK)
             .ProducesValidationProblem();
+
+            // ==========================================
+            // GROUP 8: CACHE MANAGEMENT
+            // ==========================================
+            var cacheApi = app.MapGroup("/api/cache").WithTags("8. Cache Management");
+
+            cacheApi.MapPost("/invalidate", async (string tag) =>
+            {
+                await QueryForgeCache.Default.InvalidateTagAsync(tag);
+                return Results.Ok(new { message = $"Cache entries tagged with '{tag}' invalidated." });
+            })
+            .WithName("InvalidateCacheByTag")
+            .WithSummary("Invalidates cached queries by tag (e.g. 'users').");
+
+            cacheApi.MapPost("/clear", async () =>
+            {
+                await QueryForgeCache.Default.ClearAsync();
+                return Results.Ok(new { message = "Entire query cache cleared." });
+            })
+            .WithName("ClearQueryCache")
+            .WithSummary("Clears all cached queries.");
 
             app.Run();
         }
