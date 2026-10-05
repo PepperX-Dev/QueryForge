@@ -1,4 +1,4 @@
-﻿namespace PepperX.QueryForge;
+namespace PepperX.QueryForge;
 
 /// <summary>
 /// The master, provider-agnostic query intent object. 
@@ -22,4 +22,7 @@ public class Query
 
     /// <summary>The columns to group the results by, creating a nested hierarchy.</summary>
     public IReadOnlyList<GroupByDescriptor> GroupByColumns { get; set; } = Array.Empty<GroupByDescriptor>();
+
+    /// <summary>Optional caching policy and configuration for the query result.</summary>
+    public Caching.QueryCacheOptions? Cache { get; set; }
 }

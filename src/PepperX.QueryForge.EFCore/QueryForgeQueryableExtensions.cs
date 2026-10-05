@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using PepperX.QueryForge.Caching;
 using PepperX.QueryForge.EFCore.Translation;
 using PepperX.QueryForge.Querying;
 
@@ -171,22 +172,81 @@ public static class QueryForgeQueryableExtensions
     /// <summary>Applies filtering, sorting and paging, leaving the query unexecuted.</summary>
     /// <remarks>
     /// Grouping is not applied here, because a hierarchy is a shape rather than a queryable. Use
-    /// <see cref="ToQueryResultAsync{TModel}"/> for grouped queries.
+    /// <see cref="ToQueryResultAsync{TModel}(IQueryable{TModel}, Query, IQueryCache?, CancellationToken)"/> for grouped queries.
     /// </remarks>
     public static IQueryable<TModel> ApplyQuery<TModel>(this IQueryable<TModel> source, Query query)
         => source.ApplyFilter(query).ApplySort(query).ApplyPaging(query).ApplyProjection(query);
 
     /// <summary>
     /// Executes the query and returns the standard QueryForge result, flat or grouped.
+    /// Supports second-level query caching when <see cref="Query.Cache"/> is configured or when a cache is provided.
     /// </summary>
     public static async Task<QueryResult<TModel>> ToQueryResultAsync<TModel>(
         this IQueryable<TModel> source,
         Query query,
+        IQueryCache? cache = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(query);
 
+        var cacheInstance = cache ?? QueryForgeCache.Default;
+        var cacheOptions = query.Cache;
+
+        if (cacheOptions is { Enabled: true })
+        {
+            var cacheKey = QueryCacheKeyGenerator.GenerateKey<TModel>(
+                query,
+                targetSource: typeof(TModel).Name,
+                customPrefix: "ef");
+
+            var cached = await cacheInstance.GetAsync<TModel>(cacheKey, cancellationToken);
+            if (cached is not null)
+                return cached;
+
+            var result = await ExecuteCoreAsync(source, query, cancellationToken);
+            await cacheInstance.SetAsync(cacheKey, result, cacheOptions, cancellationToken);
+            return result;
+        }
+
+        return await ExecuteCoreAsync(source, query, cancellationToken);
+    }
+
+    /// <summary>
+    /// Executes the query with the specified caching options.
+    /// </summary>
+    public static Task<QueryResult<TModel>> ToQueryResultAsync<TModel>(
+        this IQueryable<TModel> source,
+        Query query,
+        QueryCacheOptions cacheOptions,
+        IQueryCache? cache = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        query.Cache = cacheOptions;
+        return source.ToQueryResultAsync(query, cache, cancellationToken);
+    }
+
+    /// <summary>
+    /// Executes the query with caching enabled for the specified expiration duration.
+    /// </summary>
+    public static Task<QueryResult<TModel>> ToQueryResultCachedAsync<TModel>(
+        this IQueryable<TModel> source,
+        Query query,
+        TimeSpan? expiration = null,
+        IQueryCache? cache = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        query.WithCache(expiration);
+        return source.ToQueryResultAsync(query, cache, cancellationToken);
+    }
+
+    private static async Task<QueryResult<TModel>> ExecuteCoreAsync<TModel>(
+        IQueryable<TModel> source,
+        Query query,
+        CancellationToken cancellationToken)
+    {
         var filtered = source.ApplyFilter(query);
 
         // A grouping level has to be orderable, not merely present: its keys are ordered and paged

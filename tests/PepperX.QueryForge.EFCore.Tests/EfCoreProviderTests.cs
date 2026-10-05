@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using PepperX.QueryForge.Caching;
 using PepperX.QueryForge.EFCore;
 
 namespace PepperX.QueryForge.EFCore.Tests;
@@ -438,6 +439,78 @@ public sealed class EfCoreProviderTests : IDisposable
 
         statement.Should().NotContain("'Iran'");
         statement.Should().MatchRegex(@"WHERE .*= @\w+");
+    }
+
+    #endregion
+
+    #region Caching
+
+    [Fact]
+    public async Task ToQueryResultAsync_WithCacheEnabled_ServesFromCacheOnSecondCall()
+    {
+        using var cache = new MemoryQueryCache();
+        var query = new Query
+        {
+            Criteria = Criteria(Logic.And, new Condition("Country", ConditionOperator.Equals, "Iran")),
+            Paging = new QueryPaging { Number = 1, Size = 10 }
+        }.WithCache(TimeSpan.FromMinutes(5));
+
+        // First execution — queries SQLite DB and populates cache
+        var result1 = await _context.Users.ToQueryResultAsync(query, cache);
+        result1.Models.Should().HaveCount(3);
+
+        // Mutate underlying database
+        _context.Users.Add(new User { Id = 99, Name = "NewIranUser", Country = "Iran", Age = 20, IsActive = true, JoinedOn = DateTime.UtcNow });
+        await _context.SaveChangesAsync();
+
+        // Second execution with cache — should return cached result (count 3, not 4)
+        var result2 = await _context.Users.ToQueryResultAsync(query, cache);
+        result2.Models.Should().HaveCount(3);
+        result2.Models.Should().NotContain(u => u.Id == 99);
+    }
+
+    [Fact]
+    public async Task ToQueryResultAsync_WithTagInvalidation_EvictsCacheAndRequeriesDatabase()
+    {
+        using var cache = new MemoryQueryCache();
+        var query = new Query
+        {
+            Criteria = Criteria(Logic.And, new Condition("Country", ConditionOperator.Equals, "Canada")),
+            Paging = new QueryPaging { Number = 1, Size = 10 }
+        }.WithCache(TimeSpan.FromMinutes(5), tags: ["users"]);
+
+        // First call
+        var result1 = await _context.Users.ToQueryResultAsync(query, cache);
+        result1.Models.Should().HaveCount(2);
+
+        // Add user
+        _context.Users.Add(new User { Id = 100, Name = "NewCanadaUser", Country = "Canada", Age = 28, IsActive = true, JoinedOn = DateTime.UtcNow });
+        await _context.SaveChangesAsync();
+
+        // Invalidate "users" cache tag
+        await cache.InvalidateTagAsync("users");
+
+        // Next call hits database again and sees the new user
+        var result2 = await _context.Users.ToQueryResultAsync(query, cache);
+        result2.Models.Should().HaveCount(3);
+        result2.Models.Should().Contain(u => u.Id == 100);
+    }
+
+    [Fact]
+    public async Task ToQueryResultCachedAsync_Helper_EnablesCachingAutomatically()
+    {
+        using var cache = new MemoryQueryCache();
+        var query = new Query
+        {
+            Paging = new QueryPaging { Number = 1, Size = 5 }
+        };
+
+        var result = await _context.Users.ToQueryResultCachedAsync(query, TimeSpan.FromMinutes(2), cache);
+        result.Models.Should().HaveCount(5);
+
+        var key = QueryCacheKeyGenerator.GenerateKey<User>(query, targetSource: nameof(User), customPrefix: "ef");
+        var fromCache = await cache.GetAsync<User>(key);
+        fromCache.Should().NotBeNull();
     }
 
     #endregion

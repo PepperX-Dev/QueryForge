@@ -94,6 +94,28 @@ Content-Type: application/json
 
 ###
 
+# 4b. Cached query — repeat calls return immediately from memory cache without SQL.
+POST {{baseUrl}}/api/users/cached
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "Country", "operator": 0, "value": "Iran" }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 10, "number": 1 },
+  "sortColumns": [ { "columnName": "UserId", "sortOrder": 0 } ]
+}
+
+###
+
 # 5. No inputs at all — the defaults apply: page 1, size 12, no filter.
 POST {{baseUrl}}/api/users/query
 Content-Type: application/json
@@ -648,6 +670,28 @@ Content-Type: application/json
   "sortColumns": [ { "columnName": "Score", "sortOrder": 1 } ]
 }
 
+###
+
+# 30b. Cached query via EF Core — repeat queries return directly from memory cache.
+POST {{baseUrl}}/api/efcore/users/cached
+Content-Type: application/json
+
+{
+  "criteria": {
+    "logic": 0,
+    "groups": [
+      {
+        "logic": 0,
+        "conditions": [
+          { "columnName": "Country", "operator": 0, "value": "Germany" }
+        ]
+      }
+    ]
+  },
+  "paging": { "size": 10, "number": 1 },
+  "sortColumns": [ { "columnName": "UserId", "sortOrder": 0 } ]
+}
+
 
 ### ==========================================================================
 ### GROUP 7: IN-MEMORY PROVIDER  (no database, no configuration)
@@ -907,10 +951,24 @@ Content-Type: application/json
 
 
 ### ==========================================================================
+### GROUP 8: CACHE MANAGEMENT
+### ==========================================================================
+
+# 44. Invalidate cache entries by tag (e.g. 'users').
+POST {{baseUrl}}/api/cache/invalidate?tag=users
+
+###
+
+# 45. Clear all cached queries from memory cache.
+POST {{baseUrl}}/api/cache/clear
+
+
+### ==========================================================================
 ### The OpenAPI document (development environment only)
 ### ==========================================================================
 
-# 44. The generated OpenAPI document — for Swagger UI, Scalar, Postman import,
+# 46. The generated OpenAPI document — for Swagger UI, Scalar, Postman import,
 #     or frontend client generation.
 GET {{baseUrl}}/openapi/v1.json
 Accept: application/json
+

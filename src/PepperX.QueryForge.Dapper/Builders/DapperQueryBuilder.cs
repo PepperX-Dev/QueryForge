@@ -1,4 +1,4 @@
-﻿using PepperX.QueryForge.Dapper;
+using PepperX.QueryForge.Dapper;
 
 /// <summary>
 /// A static entry point for constructing Dapper <see cref="DapperQuery"/> instances.
@@ -15,7 +15,7 @@ public static class DapperQueryBuilder
     /// Upgrades a base, provider-agnostic Query into a Dapper-specific query builder.
     /// This allows the frontend to send the base Query, and the backend to securely append the DapperQueryObject.
     /// </summary>
-    public static DapperQueryFluent FromBase(PepperX.QueryForge.Query baseQuery) => New(new DapperQuery { Criteria = baseQuery.Criteria, Paging = baseQuery.Paging, SelectColumns = baseQuery.SelectColumns, SortColumns = baseQuery.SortColumns, GroupByColumns = baseQuery.GroupByColumns });
+    public static DapperQueryFluent FromBase(PepperX.QueryForge.Query baseQuery) => New(new DapperQuery { Criteria = baseQuery.Criteria, Paging = baseQuery.Paging, SelectColumns = baseQuery.SelectColumns, SortColumns = baseQuery.SortColumns, GroupByColumns = baseQuery.GroupByColumns, Cache = baseQuery.Cache });
 
     /// <summary>Starts a new chain by specifying the target SQL object.</summary>
     public static DapperQueryFluent ForObject(string name, string schema = "", DapperObjectType type = DapperObjectType.Auto, IReadOnlyDictionary<string, object?>? parameters = null)
@@ -76,6 +76,35 @@ public class DapperQueryFluent : PepperX.QueryForge.QueryFluent
     /// <inheritdoc/>
     public new DapperQueryFluent Page(int size, int number = 1) { base.Page(size, number); return this; }
 
+    /// <summary>Enables caching on the query with the specified expiration, optional custom key, and tags.</summary>
+    public DapperQueryFluent WithCache(TimeSpan? expiration = null, string? key = null, string[]? tags = null, TimeSpan? slidingExpiration = null)
+    {
+        _dapperQuery.Cache = new PepperX.QueryForge.Caching.QueryCacheOptions
+        {
+            Enabled = true,
+            Expiration = expiration,
+            Key = key,
+            Tags = tags ?? Array.Empty<string>(),
+            SlidingExpiration = slidingExpiration
+        };
+        return this;
+    }
+
+    /// <summary>Enables caching on the query with the specified cache options.</summary>
+    public DapperQueryFluent WithCacheOptions(PepperX.QueryForge.Caching.QueryCacheOptions options)
+    {
+        _dapperQuery.Cache = options;
+        return this;
+    }
+
+    /// <summary>Disables caching on the query.</summary>
+    public DapperQueryFluent WithoutCache()
+    {
+        if (_dapperQuery.Cache is not null)
+            _dapperQuery.Cache.Enabled = false;
+        return this;
+    }
+
     /// <summary>
     /// Upgrades a base, provider-agnostic Query into a Dapper-specific query builder.
     /// This allows the frontend to send the base Query, and the backend to securely append the DapperQueryObject.
@@ -88,7 +117,8 @@ public class DapperQueryFluent : PepperX.QueryForge.QueryFluent
             Paging = baseQuery.Paging,
             SelectColumns = baseQuery.SelectColumns,
             SortColumns = baseQuery.SortColumns,
-            GroupByColumns = baseQuery.GroupByColumns
+            GroupByColumns = baseQuery.GroupByColumns,
+            Cache = baseQuery.Cache
         };
 
         return new DapperQueryFluent(dapperQuery);

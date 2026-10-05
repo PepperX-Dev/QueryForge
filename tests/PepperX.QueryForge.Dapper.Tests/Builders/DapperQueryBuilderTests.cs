@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using PepperX.QueryForge;
 using PepperX.QueryForge.Dapper;
 using Xunit;
@@ -62,5 +62,41 @@ public class DapperQueryBuilderTests
             .Page(10);
 
         fluent.Should().BeOfType<DapperQueryFluent>();
+    }
+
+    [Fact]
+    public void WithCache_ShouldConfigureCacheOptionsOnDapperQuery()
+    {
+        var query = DapperQueryBuilder.New()
+            .ForObject("Users")
+            .WithCache(TimeSpan.FromMinutes(10), tags: ["users"])
+            .Build();
+
+        query.Cache.Should().NotBeNull();
+        query.Cache!.Enabled.Should().BeTrue();
+        query.Cache.Expiration.Should().Be(TimeSpan.FromMinutes(10));
+        query.Cache.Tags.Should().Contain("users");
+    }
+
+    [Fact]
+    public void FromBase_ShouldPreserveCacheOptions()
+    {
+        var baseQuery = QueryBuilder.New()
+            .Select("Id")
+            .Build();
+        baseQuery.Cache = new PepperX.QueryForge.Caching.QueryCacheOptions
+        {
+            Enabled = true,
+            Expiration = TimeSpan.FromMinutes(5)
+        };
+
+        var dapperQuery = DapperQueryBuilder
+            .FromBase(baseQuery)
+            .ForObject("Users")
+            .Build();
+
+        dapperQuery.Cache.Should().NotBeNull();
+        dapperQuery.Cache!.Enabled.Should().BeTrue();
+        dapperQuery.Cache.Expiration.Should().Be(TimeSpan.FromMinutes(5));
     }
 }
